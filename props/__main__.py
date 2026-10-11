@@ -1,0 +1,66 @@
+"""python -m props [refresh | backfill | build | serve]
+
+With no command: refresh the game logs, build every board and open the first.
+"""
+import argparse
+import functools
+import http.server
+import webbrowser
+
+from . import site
+from .leagues import LEAGUES
+from .store import Store
+
+
+def refresh(leagues, days: int) -> None:
+    for league in leagues:
+        for message in league.refresh(Store(league), days):
+            print(f"refresh {league.KEY}: {message}")
+
+
+def backfill(league, seasons: list[int]) -> None:
+    for message in league.backfill(Store(league), seasons):
+        print(f"backfill {league.KEY}: {message}")
+
+
+def serve(port: int) -> None:
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(site.OUT))
+    print(f"serving {site.OUT} at http://localhost:{port}")
+    http.server.ThreadingHTTPServer(("", port), handler).serve_forever()
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(prog="props", description=__doc__.strip().splitlines()[-1])
+    sub = ap.add_subparsers(dest="cmd")
+    league = argparse.ArgumentParser(add_help=False)
+    league.add_argument("--league", choices=LEAGUES, help="one league only (default: all)")
+    p = sub.add_parser("refresh", parents=[league], help="update game logs for the season in progress")
+    p.add_argument("--days", type=int, default=3, help="NHL: days to re-read for stat corrections (default 3)")
+    p = sub.add_parser("backfill", help="rebuild whole seasons, e.g. backfill nhl 20252026, backfill nfl 2024 2025")
+    p.add_argument("league", choices=LEAGUES)
+    p.add_argument("seasons", type=int, nargs="+")
+    p = sub.add_parser("build", parents=[league], help="fetch Underdog lines and write the site")
+    p.add_argument("--offline", action="store_true", help="reuse the last fetched lines, schedule and rosters")
+    p.add_argument("--open", action="store_true", help="open the board in a browser when done")
+    p = sub.add_parser("serve", help="serve the built site locally (for phones on the same network)")
+    p.add_argument("--port", type=int, default=8000)
+    a = ap.parse_args()
+
+    one = getattr(a, "league", None) if a.cmd != "backfill" else None
+    chosen = [LEAGUES[one]] if one else list(LEAGUES.values())
+    if a.cmd == "refresh":
+        refresh(chosen, a.days)
+    elif a.cmd == "backfill":
+        backfill(LEAGUES[a.league], a.seasons)
+    elif a.cmd == "serve":
+        serve(a.port)
+    else:
+        if a.cmd is None:
+            refresh(chosen, days=3)
+        pages = [site.build(league, offline=getattr(a, "offline", False)) for league in chosen]
+        if a.cmd is None or a.open:
+            webbrowser.open(pages[0].as_uri())
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070707">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SC Board">
+<title>SC Board UD Lines</title>
+<style>
+/* the boards' look (template.html): same colours, top bar, game list, tabs and dense table */
+:root {
+  color-scheme: light;
+  --page: #e8eef2; --surface: #fbfdfe; --raised: #ffffff; --ink: #0d1b26; --ink-2: #445564; --ink-3: #6f7f8c;
+  --rule: #d6dfe6; --accent: #1d5fc4; --hit: #12a37a; --miss: #d03b3b;
+  --cond: "Avenir Next Condensed", "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --top: 52px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #070707; --surface: #101010; --raised: #1a1a1a; --ink: #f5f5f5; --ink-2: #b9b9b9;
+    --ink-3: #8a8a8a; --rule: #242424; --accent: #6aa5f2; --hit: #22ab7f; --miss: #d03b3b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #070707; --surface: #101010; --raised: #1a1a1a; --ink: #f5f5f5; --ink-2: #b9b9b9;
+  --ink-3: #8a8a8a; --rule: #242424; --accent: #6aa5f2; --hit: #22ab7f; --miss: #d03b3b;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.4 var(--body); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---- top bar ---- */
+.top {
+  position: sticky; top: 0; z-index: 20; height: var(--top);
+  display: grid; grid-template-columns: 1fr minmax(0, 520px) 1fr; align-items: center; gap: 16px; padding: 0 20px;
+  background: var(--page); border-bottom: 1px solid var(--rule);
+}
+.top-start { justify-self: start; display: flex; align-items: center; gap: 16px; min-width: 0; }
+.leagues { display: flex; gap: 2px; }
+.leagues a { padding: 6px 10px; border-radius: 7px; color: var(--ink-3); font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.leagues a:hover { color: var(--ink); }
+.leagues a[aria-current] { color: var(--ink); background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.brand { font: 400 18px/1 var(--body); letter-spacing: -.01em; color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.brand b { font-weight: 800; color: var(--ink); letter-spacing: 0; }
+.search { position: relative; }
+.search > svg { position: absolute; left: 11px; top: 10px; color: var(--ink-3); pointer-events: none; }
+.search input { width: 100%; height: 36px; padding: 0 12px 0 34px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+.search input::placeholder { color: var(--ink-3); }
+.top-end { justify-self: end; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.status { margin: 0; color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.iconbtn { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; color: var(--ink-2); }
+.iconbtn:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) {
+  .iconbtn.busy svg { animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+}
+.ghost { height: 32px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 8px; background: none; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+.ghost:hover { border-color: var(--ink-3); color: var(--ink); }
+.ghost[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); font-weight: 600; }
+
+/* ---- layout: games down the side ---- */
+.layout { display: grid; grid-template-columns: 196px minmax(0, 1fr); align-items: start; }
+.games { position: sticky; top: var(--top); max-height: calc(100dvh - var(--top)); overflow-y: auto; padding: 18px 12px 24px 20px; }
+.games h2 { margin: 14px 0 6px; font: 600 13px/1.2 var(--body); color: var(--ink-3); }
+.game {
+  display: block; width: 100%; margin: 0 0 4px; padding: 8px 10px 8px 12px; text-align: left;
+  border: 0; border-left: 3px solid transparent; border-radius: 0 8px 8px 0; background: none;
+}
+.game:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.game[aria-pressed="true"] { border-left-color: var(--accent); background: var(--surface); }
+.game b { display: block; font: 700 16px/1.2 var(--cond); letter-spacing: .02em; }
+.game span { display: block; font-size: 12px; color: var(--ink-3); }
+main { min-width: 0; padding: 14px 20px 48px 8px; }
+
+/* ---- filters ---- */
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 12px; }
+.tabs { display: flex; flex: 1 0 100%; flex-wrap: wrap; gap: 5px; min-width: 0; max-width: 100%; }
+.tabs button { flex: none; height: 30px; padding: 0 8px; border: 0; border-radius: 15px; background: none; box-shadow: inset 0 0 0 1px var(--rule); color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+.tabs button small { margin-left: 4px; color: var(--ink-3); font-size: 11px; }
+.tabs button:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); box-shadow: inset 0 0 0 1px var(--ink-3); }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--surface); font-weight: 600; box-shadow: none; }
+.tabs button[aria-pressed="true"] small { color: inherit; opacity: .7; }
+.sports button { font-weight: 600; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.controls label { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 13px; }
+.controls select { height: 32px; max-width: 260px; padding: 0 8px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.count { margin-left: auto; color: var(--ink-3); font-size: 13px; }
+.notice { margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--ink-3); background: var(--surface); color: var(--ink-2); }
+.notice.error { border-left-color: var(--miss); }
+
+/* ---- board: dense rows, 34px, striped instead of ruled ---- */
+.board { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 12px; }
+.board th { position: sticky; top: var(--top); z-index: 5; padding: 0; background: var(--surface); border-bottom: 1px solid var(--rule); text-align: left; color: var(--ink-3); white-space: nowrap; }
+.board th:first-child { border-top-left-radius: 12px; }
+.board th:last-child { border-top-right-radius: 12px; }
+.board th > button { display: block; width: 100%; padding: 9px 8px; border: 0; background: none; color: inherit; font: 600 11px/1 var(--body); text-align: inherit; }
+.board th > button:hover { color: var(--ink); }
+.board th[aria-sort] { color: var(--ink); }
+.board th[aria-sort="descending"] > button::after { content: " \25BE"; }
+.board th[aria-sort="ascending"] > button::after { content: " \25B4"; }
+.board td { height: 34px; padding: 0 8px; vertical-align: middle; white-space: nowrap; }
+.board tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.board tbody tr:hover td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.board tbody tr[data-href] { cursor: pointer; }
+.board .num, .board th.num > button { text-align: center; }
+.c-who { padding-left: 10px !important; }
+.playercell { display: flex; align-items: center; gap: 8px; }
+.mug { position: relative; flex: none; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--ink) 9%, var(--surface)); box-shadow: inset 0 0 0 1px var(--rule); }
+.mug img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.4); transform-origin: 50% 22%; }
+/* name, team and position share one line, the team giving way first */
+.who { display: flex; align-items: baseline; gap: 8px; min-width: 0; max-width: 300px; }
+.who b { flex: none; max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 600; }
+.who a { color: inherit; text-decoration: none; }
+.who a:hover { color: var(--accent); }
+.meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; color: var(--ink-3); }
+.meta .narrow { display: none; }
+.gamecell { font-size: 12px; color: var(--ink-2); }
+.gamecell span { margin-left: 6px; color: var(--ink-3); font-size: 11px; }
+.stat { font-size: 13px; }
+.tag { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink-2); font: 600 11px/16px var(--cond); letter-spacing: .03em; }
+.lineval { font: 700 15px/1.1 var(--cond); font-variant-numeric: tabular-nums; }
+.lineval s { margin-right: 4px; color: var(--ink-3); font-weight: 500; }
+.price { font: 600 13px/1.1 var(--cond); font-variant-numeric: tabular-nums; }
+.price .side { display: none; }
+.price .yes { margin-right: 4px; font: 500 11px/1 var(--body); color: var(--ink-3); }
+.price.up { color: var(--hit); font-weight: 700; }
+.price.down { color: var(--ink-3); font-weight: 500; }
+.price.off, .price.none { color: var(--ink-3); font-weight: 400; }
+.more { display: block; width: 100%; margin-top: 10px; height: 40px; }
+
+@media (max-width: 1100px) { .c-game { display: none; } .meta .narrow { display: inline; } }
+@media (max-width: 1040px) {
+  .top { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .games { position: static; display: flex; gap: 6px; max-height: none; overflow-x: auto; padding: 12px 16px 2px; scrollbar-width: none; }
+  .games::-webkit-scrollbar { display: none; }
+  .games h2 { display: none; }
+  .game { flex: none; width: auto; margin: 0; border: 1px solid var(--rule); border-radius: 10px; padding: 7px 12px; background: var(--surface); white-space: nowrap; }
+  .game[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  main { padding: 12px 16px 40px; }
+  .sports { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sports::-webkit-scrollbar { display: none; }
+}
+/* ---- phone: a card per line ---- */
+@media (max-width: 760px) {
+  .top { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: var(--top) auto; height: auto; gap: 0 8px; padding: 0 4px 8px 14px; }
+  .brand, .status { display: none; }
+  .leagues { overflow-x: auto; scrollbar-width: none; }
+  .search { grid-column: 1 / -1; grid-row: 2; margin-right: 10px; }
+  .search input { font-size: 16px; }   /* 16px keeps iOS from zooming in on focus */
+  .iconbtn { width: 40px; height: 40px; }
+  .board th { top: 0; }
+  main { padding: 10px 12px 40px; }
+  .stats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .count { margin-left: 0; }
+  .controls { gap: 8px 10px; }
+  .controls select { max-width: 150px; }
+  .board, .board tbody, .board tr, .board td { display: block; }
+  .board thead { display: none; }
+  .board { background: none; }
+  .board tbody tr { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; margin-bottom: 8px; padding: 10px 12px; background: var(--surface); border-radius: 14px; }
+  .board tbody tr td, .board tbody tr:nth-child(even) td { min-width: 0; height: auto; padding: 0; background: none; white-space: normal; }
+  .board td.c-game { display: none; }
+  .board td.c-who { grid-column: 1 / -1; }
+  .who { max-width: none; }
+  .board td.c-stat { grid-column: 1; }
+  .board td.c-line { grid-column: 2; grid-row: 2; text-align: right; }
+  .board td.c-hi { grid-column: 1; grid-row: 3; text-align: left; }
+  .board td.c-lo { grid-column: 2; grid-row: 3; text-align: right; }
+  .price { font-size: 16px; }
+  .price .side { display: inline; margin-right: 5px; font: 600 11px/1 var(--body); color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .price .yes { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-start">
+    <a class="brand" href="index.html"><b>SC</b> Board</a>
+    <nav class="leagues" id="leagues" aria-label="League"></nav>
+  </div>
+  <div class="search">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+    <label class="sr" for="q">Search players or teams</label>
+    <input id="q" type="search" placeholder="Search players or teams" autocomplete="off">
+  </div>
+  <div class="top-end">
+    <p class="status" id="status"></p>
+    <button class="iconbtn" id="refresh" type="button" title="Fetch this sport's lines again" aria-label="Fetch this sport's lines again"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg></button>
+  </div>
+</header>
+<div class="layout">
+  <nav class="games" id="games" aria-label="Games"></nav>
+  <main>
+    <div class="filters">
+      <div class="tabs sports" id="sports" role="group" aria-label="Sport"></div>
+      <div class="tabs stats" id="statchips" role="group" aria-label="Stat"></div>
+      <div class="controls">
+        <label>Stat <select id="stat"></select></label>
+        <label title="Standard: Higher and Lower both offered, both paying a standard pick, at an undiscounted line">Payout <select id="payout">
+          <option value="all">All lines</option><option value="std">Standard only</option><option value="special">Non-standard only</option>
+        </select></label>
+        <button class="ghost" id="board" type="button" aria-pressed="false" title="Only lines the league's board carries, with hit rates a click away">On the board</button>
+      </div>
+      <span class="count" id="count"></span>
+    </div>
+    <div id="out"></div>
+  </main>
+</div>
+<script id="data" type="application/json">__DATA__</script>
+<script>window.UDLINKS = [];</script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById("data").textContent);
+  // each league's link file: which of its lines the board carries; a missing file just means no links
+  for (const key of D.leagues) {
+    const s = document.createElement("script");
+    s.src = `ud/${key}.js`;
+    s.onload = () => { if (state.payload) render(); };
+    document.head.append(s);
+  }
+})();
+</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const prefs = {   // shared with the boards ("puck." keys), so the theme carries over
+  get(key, fallback) { try { return JSON.parse(localStorage.getItem("puck." + key)) ?? fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem("puck." + key, JSON.stringify(value)); } catch { /* private mode */ } },
+};
+const theme = prefs.get("theme", "auto");
+if (theme !== "auto") document.documentElement.dataset.theme = theme;
+
+// the same as norm_name in underdog.py, so a line finds the player's id in a league's link file
+const fold = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
+const GIVEN_NAMES = { tommy: "thomas", tom: "thomas" };
+const normName = s => {
+  const parts = fold(s || "").replace(/\./g, "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w && !NAME_SUFFIXES.has(w));
+  if (parts.length > 1) parts[0] = GIVEN_NAMES[parts[0]] || parts[0];
+  return parts.join(" ");
+};
+
+// The sports Underdog had lines up for at the last build; NFL first when nothing else is known.
+const SPORTS = D.sports.length ? D.sports : [["NFL", "NFL", 0], ["NHL", "NHL", 0], ["MLB", "MLB", 0]];
+const state = {
+  sport: SPORTS.some(([s]) => s === prefs.get("ud.sport")) ? prefs.get("ud.sport") : SPORTS[0][0],
+  game: "all", stat: "all", q: "", payout: prefs.get("ud.payout", "all"), board: false, sort: prefs.get("ud.sort", ["game", 1]),
+  limit: 400, payload: null, lines: [], fetched: null, error: null, loading: false,
+};
+const cache = new Map();   // sport -> {lines, fetched}
+
+const timeFmt = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const dayFmt = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+const startLabel = iso => {
+  if (!iso) return "";
+  const d = new Date(iso), today = new Date();
+  return d.toDateString() === today.toDateString() ? timeFmt.format(d) : dayFmt.format(d);
+};
+
+/* ---------- reading Underdog's answer ---------- */
+// One flat record per line: who, which event, the stat, the line and each side's payout.
+function parseAll(payload, sport) {
+  const byId = list => new Map((list || []).map(x => [x.id, x]));
+  const players = byId(payload.players), appearances = byId(payload.appearances);
+  const games = byId(payload.games), solos = byId(payload.solo_games);
+  const out = [];
+  for (const ln of payload.over_under_lines || []) {
+    if (ln.status !== "active") continue;
+    const ou = ln.over_under || {}, st = ou.appearance_stat || {};
+    const app = appearances.get(st.appearance_id) || {}, p = players.get(app.player_id);
+    if (!p || p.sport_id !== sport) continue;
+    let event, team = "", opp = "";
+    if (app.match_type === "SoloGame") {
+      const g = solos.get(app.match_id);
+      event = g && { key: "s" + g.id, title: g.abbreviated_title || g.title, start: g.scheduled_at };
+    } else if (app.match_type === "Game") {
+      const g = games.get(app.match_id);
+      if (g) {
+        // "PHI @ JAX" lists the away team first; "RMA vs VIL" the home team
+        const title = g.abbreviated_title || g.title || "", at = title.includes(" @ ");
+        const [first, second] = title.split(at ? " @ " : " vs ");
+        const [away, home] = at ? [first, second] : [second, first];
+        if (app.team_id && app.team_id === g.home_team_id) [team, opp] = [home, away];
+        else if (app.team_id && app.team_id === g.away_team_id) [team, opp] = [away, home];
+        event = { key: "g" + g.id, title, start: g.scheduled_at };
+      }
+    }
+    event ||= { key: "season", title: app.match_type === "Series" ? "Season" : "Other", start: null };
+    const sides = {};
+    for (const o of ln.options || []) {
+      const side = { higher: "hi", lower: "lo" }[o.choice];
+      if (!side) continue;
+      sides[side] = {
+        label: o.choice_display || (side === "hi" ? "Higher" : "Lower"), active: o.status === "active",
+        odds: o.odds?.fantasy?.decimal ? +o.odds.fantasy.decimal : null, mult: +(o.payout_multiplier || 1),
+      };
+    }
+    if (!sides.hi && !sides.lo) continue;
+    out.push({
+      id: ln.id, name: `${p.first_name || ""} ${p.last_name || ""}`.trim(), pos: p.position_name || "",
+      img: p.image_url || "", team, opp, event, statKey: st.stat, stat: (st.display_stat || st.stat || "").trim(),
+      line: +ln.stat_value, was: ln.non_discounted_stat_value != null ? +ln.non_discounted_stat_value : null,
+      alts: !!ou.has_alternates, hi: sides.hi || null, lo: sides.lo || null,
+    });
+  }
+  return out;
+}
+
+// The payout a standard pick shows for this sport: the commonest one with a multiplier of 1.
+function standardOdds(lines) {
+  const n = new Map();
+  for (const l of lines) for (const s of [l.hi, l.lo]) if (s?.odds && s.mult === 1) n.set(s.odds, (n.get(s.odds) || 0) + 1);
+  return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
+// Where the board carries a line: the league's page, the player's id and the board's stat for it.
+function boardLink(l) {
+  const L = window.UDLINKS.find(x => x.sport === state.sport);
+  if (!L || !(l.statKey in L.stats)) return null;
+  const id = L.players[normName(l.name)];
+  if (id == null) return null;
+  const column = L.stats[l.statKey];
+  const stat = Object.entries(L.fixed || {}).find(([, [c, at]]) => c === column && at === l.line)?.[0] || column;
+  return `${L.page}#${new URLSearchParams({ p: id, stat, line: l.line, side: "over" })}`;
+}
+
+/* ---------- fetching ---------- */
+async function load(sport, force) {
+  if (!force && cache.has(sport)) { Object.assign(state, cache.get(sport), { error: null }); render(); return; }
+  state.loading = true; state.error = null; render();
+  $("#refresh").classList.add("busy");
+  try {
+    const response = await fetch(D.url + encodeURIComponent(sport), { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`Underdog answered ${response.status}`);
+    const lines = parseAll(await response.json(), sport);
+    const entry = { lines, fetched: new Date(), payload: true };
+    cache.set(sport, entry);
+    if (state.sport === sport) Object.assign(state, entry);
+  } catch (error) {
+    if (state.sport === sport) { state.error = error.message; state.lines = []; state.payload = null; }
+  } finally {
+    if (state.sport === sport) state.loading = false;
+    $("#refresh").classList.remove("busy");
+    render();
+  }
+}
+
+// A standard line: Higher and Lower both offered, each paying the standard pick, at a line Underdog hasn't discounted.
+function isStandard(l, std) {
+  if (!l.hi || !l.lo || (l.was != null && l.was !== l.line)) return false;
+  return [l.hi, l.lo].every(s => s.mult === 1 && (!s.odds || !std || Math.abs(s.odds - std) < 1e-9));
+}
+
+/* ---------- drawing ---------- */
+function payCell(s, std) {
+  if (!s) return `<span class="price none">–</span>`;
+  const cls = !s.active ? "off" : !std || !s.odds ? "" : s.odds > std + 1e-9 ? "up" : s.odds < std - 1e-9 ? "down" : "";
+  const title = s.odds ? `${s.label}: ${s.odds}x, ${(100 / s.odds).toFixed(1)}% to break even${s.mult !== 1 ? `, payout multiplier ${s.mult}` : ""}${s.active ? "" : " (suspended)"}` : s.label;
+  // the column says Higher or Lower; a side Underdog names otherwise ("Yes") says so
+  const named = /^(higher|lower)$/i.test(s.label) ? "" : `<span class="yes">${esc(s.label)}</span>`;
+  return `<span class="price ${cls}" title="${esc(title)}"><span class="side">${esc(s.label)}</span>${named}${s.odds ? s.odds.toFixed(2) + "x" : "–"}</span>`;
+}
+
+const SORTS = {
+  game: (a, b) => (a.event.start || "~").localeCompare(b.event.start || "~") || a.event.title.localeCompare(b.event.title) || a.name.localeCompare(b.name) || a.stat.localeCompare(b.stat),
+  name: (a, b) => a.name.localeCompare(b.name) || a.stat.localeCompare(b.stat),
+  stat: (a, b) => a.stat.localeCompare(b.stat) || b.line - a.line,
+  line: (a, b) => a.line - b.line,
+  hi: (a, b) => (a.hi?.odds ?? 0) - (b.hi?.odds ?? 0),
+  lo: (a, b) => (a.lo?.odds ?? 0) - (b.lo?.odds ?? 0),
+};
+
+function render() {
+  $("#leagues").innerHTML = D.nav.map(([name, href]) =>
+    `<a href="${esc(href)}"${href === "ud.html" ? ` aria-current="page"` : ""}>${esc(name)}</a>`).join("");
+  $("#sports").innerHTML = SPORTS.map(([id, name, n]) =>
+    `<button type="button" data-sport="${esc(id)}" aria-pressed="${id === state.sport}">${esc(name)}${n ? `<small>${n}</small>` : ""}</button>`).join("");
+  $("#status").textContent = state.loading ? "Fetching lines…" : state.fetched ? `Lines ${timeFmt.format(state.fetched)}` : "";
+
+  const out = $("#out");
+  if (state.error) {
+    out.innerHTML = `<div class="notice error">Couldn't fetch Underdog's lines: ${esc(state.error)}. Try the refresh button.</div>`;
+    $("#games").innerHTML = $("#statchips").innerHTML = $("#stat").innerHTML = $("#count").textContent = "";
+    return;
+  }
+  if (state.loading && !state.payload) { out.innerHTML = `<div class="notice">Fetching lines…</div>`; return; }
+  const all = state.lines;
+  if (!all.length) {
+    out.innerHTML = `<div class="notice">No lines up for this sport right now.</div>`;
+    $("#games").innerHTML = $("#statchips").innerHTML = $("#stat").innerHTML = $("#count").textContent = "";
+    return;
+  }
+
+  // games, in start order, with their line counts
+  const events = new Map();
+  for (const l of all) (events.get(l.event.key) || events.set(l.event.key, { ...l.event, n: 0 }).get(l.event.key)).n++;
+  const evList = [...events.values()].sort((a, b) => (a.start || "~").localeCompare(b.start || "~"));
+  if (state.game !== "all" && !events.has(state.game)) state.game = "all";
+  $("#games").innerHTML = evList.length < 2 ? "" : [`<button class="game" type="button" data-game="all" aria-pressed="${state.game === "all"}"><b>All games</b><span>${all.length} lines</span></button>`,
+    ...evList.map(e => `<button class="game" type="button" data-game="${esc(e.key)}" aria-pressed="${state.game === e.key}"><b>${esc(e.title)}</b><span>${e.start ? esc(startLabel(e.start)) + ", " : ""}${e.n} ${e.n === 1 ? "line" : "lines"}</span></button>`)].join("");
+
+  const inGame = state.game === "all" ? all : all.filter(l => l.event.key === state.game);
+  const stats = new Map();
+  for (const l of inGame) stats.set(l.stat, (stats.get(l.stat) || 0) + 1);
+  const statList = [...stats].sort((a, b) => b[1] - a[1]);
+  if (state.stat !== "all" && !stats.has(state.stat)) state.stat = "all";
+  $("#stat").innerHTML = [`<option value="all">All stats (${inGame.length})</option>`,
+    ...[...statList].sort((a, b) => a[0].localeCompare(b[0])).map(([s, n]) => `<option value="${esc(s)}"${s === state.stat ? " selected" : ""}>${esc(s)} (${n})</option>`)].join("");
+  $("#statchips").innerHTML = statList.slice(0, 14).map(([s, n]) =>
+    `<button type="button" data-stat="${esc(s)}" aria-pressed="${s === state.stat}">${esc(s)}<small>${n}</small></button>`).join("");
+
+  const std = standardOdds(all);
+  const q = normName(state.q);
+  const linked = window.UDLINKS.some(x => x.sport === state.sport);
+  $("#board").hidden = !linked;
+  let shown = inGame.filter(l =>
+    (state.stat === "all" || l.stat === state.stat)
+    && (!q || normName(`${l.name} ${l.team} ${l.event.title}`).includes(q))
+    && (state.payout === "all" || isStandard(l, std) === (state.payout === "std"))
+    && (!state.board || !linked || boardLink(l)));
+  const [key, dir] = state.sort;
+  shown = shown.sort((a, b) => dir * SORTS[key](a, b));
+  $("#count").textContent = `${shown.length} ${shown.length === 1 ? "line" : "lines"}${std ? ` · standard pick ${std}x` : ""}`;
+
+  const head = (k, label, cls = "") => `<th class="${cls}"${key === k ? ` aria-sort="${dir > 0 ? "ascending" : "descending"}"` : ""}><button type="button" data-sort="${k}">${label}</button></th>`;
+  const rows = shown.slice(0, state.limit).map(l => {
+    const href = boardLink(l);
+    const name = href ? `<b><a href="${esc(href)}" title="Open on the board: hit rates at this line">${esc(l.name)}</a></b>` : `<b>${esc(l.name)}</b>`;
+    // the matchup is in the Game column; repeat it here only where that column is hidden
+    const where = l.team ? esc(l.team) + (l.opp ? `<span class="narrow"> vs ${esc(l.opp)}</span>` : "") : `<span class="narrow">${esc(l.event.title)}</span>`;
+    const meta = [where, l.pos && esc(l.pos)].filter(Boolean).join(" · ");
+    return `<tr${href ? ` data-href="${esc(href)}"` : ""}>
+      <td class="c-who"><div class="playercell"><span class="mug">${l.img ? `<img src="${esc(l.img)}" alt="" loading="lazy">` : ""}</span><div class="who">${name}<span class="meta">${meta}</span></div></div></td>
+      <td class="c-game"><span class="gamecell">${esc(l.event.title)}<span>${esc(startLabel(l.event.start))}</span></span></td>
+      <td class="c-stat"><span class="stat">${esc(l.stat)}</span>${l.alts ? `<span class="tag" title="Underdog has other lines for this stat">alts</span>` : ""}</td>
+      <td class="c-line num"><span class="lineval">${l.was != null && l.was !== l.line ? `<s title="Line before Underdog's discount">${l.was}</s>` : ""}${l.line}</span></td>
+      <td class="c-hi num">${payCell(l.hi, std)}</td>
+      <td class="c-lo num">${payCell(l.lo, std)}</td>
+    </tr>`;
+  }).join("");
+  out.innerHTML = `<table class="board"><thead><tr>${head("name", "Player")}${head("game", "Game", "c-game")}${head("stat", "Stat")}${head("line", "Line", "num")}${head("hi", "Higher", "num")}${head("lo", "Lower", "num")}</tr></thead><tbody>${rows}</tbody></table>`
+    + (shown.length > state.limit ? `<button class="ghost more" type="button" id="more">Show all ${shown.length}</button>` : "");
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("button");
+  if (!t) {
+    // a row the board carries opens there, like a row on the board opens the player
+    const row = e.target.closest("tr[data-href]");
+    if (row && !e.target.closest("a") && !getSelection().toString()) location.href = row.dataset.href;
+    return;
+  }
+  if (t.dataset.sport) {
+    if (t.dataset.sport === state.sport) return;
+    Object.assign(state, { sport: t.dataset.sport, game: "all", stat: "all", limit: 400, lines: [], payload: null, fetched: null });
+    prefs.set("ud.sport", state.sport);
+    load(state.sport);
+  } else if (t.dataset.game) { state.game = t.dataset.game; state.limit = 400; render(); }
+  else if (t.dataset.stat) { state.stat = state.stat === t.dataset.stat ? "all" : t.dataset.stat; state.limit = 400; render(); }
+  else if (t.dataset.sort) {
+    const k = t.dataset.sort;
+    state.sort = [k, state.sort[0] === k ? -state.sort[1] : (k === "hi" || k === "lo" ? -1 : 1)];
+    prefs.set("ud.sort", state.sort); render();
+  } else if (t.id === "more") { state.limit = Infinity; render(); }
+  else if (t.id === "board") {
+    state[t.id] = !state[t.id]; t.setAttribute("aria-pressed", state[t.id]); render();
+  } else if (t.id === "refresh") load(state.sport, true);
+});
+$("#stat").addEventListener("change", e => { state.stat = e.target.value; state.limit = 400; render(); });
+$("#payout").value = state.payout;
+$("#payout").addEventListener("change", e => { state.payout = e.target.value; prefs.set("ud.payout", state.payout); state.limit = 400; render(); });
+let typing;
+$("#q").addEventListener("input", e => { clearTimeout(typing); typing = setTimeout(() => { state.q = e.target.value; state.limit = 400; render(); }, 120); });
+
+load(state.sport);
+</script>
+</body>
+</html>

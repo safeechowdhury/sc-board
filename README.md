@@ -1,69 +1,94 @@
-# NHL Data Extraction & Dashboard
+# SC Board
 
-A local analytics platform for NHL player data, featuring an asynchronous data pipeline and an interactive Streamlit dashboard.
+A player-prop board for the NHL, NFL, NBA and MLB: the slate's Underdog lines next to each player's hit rates, last-10 chart, head-to-head record and the opponent's defense against their position. It builds to static pages you can open from disk or host on GitHub Pages.
 
-## Features
+## Run it
 
-### Data Pipeline (`nhl_pipeline.py`)
-- **Asynchronous Fetching**: High-performance data retrieval using `httpx` and `asyncio`.
-- **Polars Processing**: Fast data manipulation and aggregation.
-- **Structured Logging**: JSON-formatted logs for better observability.
-- **Data Integrity**: Automated checks for TOI anomalies and shift consistency.
-- **Commands**:
-    - `backfill <seasons>`: Fetch full historical data.
-    - `refresh [--days <N>]`: Update with recent games.
-    - `validate <player_name>`: Diagnostic tool for data accuracy.
-
-### Dashboard (`app.py`)
-- **Interactive Visualizations**: Altair charts for player performance trends.
-- **Advanced Filtering**:
-    - **Game Filter**: Select specific scopes like "This Season", "Last Season", "H2H", or "Last 5/10/20/30 Games".
-    - **Context Filters**: Filter by Location (Home/Away) and Rest Days.
-- **Multi-Stat Analysis**: Analyze Goals, Assists, Points, Shots, Hits, Blocked Shots, and **Plus/Minus**.
-- **Matchup Overview**: Compare player stats for a specific game matchup.
-
-## Installation
-
-1.  **Clone the repository**:
-    ```bash
-    git clone <repository_url>
-    cd nhl_data_extraction
-    ```
-
-2.  **Install dependencies**:
-    ```bash
     pip install -r requirements.txt
-    ```
+    python -m props
 
-## Usage
+That refreshes the game logs, fetches the current Underdog lines, writes `site/index.html` (NHL), `site/nfl.html`, `site/nba.html`, `site/mlb.html` and the Underdog lines viewer `site/ud.html`, and opens the first. Switch leagues from the header. Click a row (or search any player) to open their page: chart, filters and game log. The browser's Back button returns to the board where you left it.
 
-### Data Pipeline
+| Command | What it does |
+|---|---|
+| `python -m props` | refresh + build + open |
+| `python -m props refresh [--league nhl]` | update the season in progress |
+| `python -m props build [--league nfl] [--offline] [--open]` | fetch Underdog lines, sportsbook prices, schedules and rosters, write `site/`. `--offline` reuses the last fetch, unless it was made on an earlier slate |
+| `python -m props backfill nhl 20242025 20252026` | rebuild whole seasons (under ten seconds each) |
+| `python -m props backfill nfl 2024 2025` | same for the NFL |
+| `python -m props backfill mlb 2025` | same for MLB (about twenty seconds a season) |
+| `python -m props backfill nba 20242025 20252026` | same for the NBA (about forty seconds a season) |
+| `python -m props serve [--port 8000]` | serve `site/` so a phone on the same network can open it |
+| `python -m unittest discover -s tests -t .` | run the tests |
 
-Run the pipeline to fetch data:
+## What a board shows
 
-```bash
-# Backfill specific seasons (e.g., 2023-2024 and 2024-2025)
-python nhl_pipeline.py backfill 20232024 20242025
+- **Every player on the slate**: one row per prop for each player expected to play. Where Underdog has a line, the row uses it and shows the odds. Where it doesn't, the row uses a typical line, the half-point above the player's recent average rounded down, shown in lighter type with no odds. A typical line is left off when it is a foregone conclusion for the player (he lands on one side of it in fewer than 15% of those games), though every stat stays available on his page. "Underdog lines only" hides the typical rows.
+- **Line** and **UD**: the line and Underdog's decimal payout for the side you picked (Over or Under). A standard pick pays 1.87x; the "UD standard" filter keeps only those.
+- **Pinnacle**, **FanDuel**, **DK** (DraftKings), **Kambi**, **Novig**, **Mise** (Mise-o-jeu), **Bovada**, **Fair** and **EV**: each book's decimal price for the same side; the chance of that side with the vig removed, taken from the best over and the best under among the sharp books (Pinnacle, FanDuel, DraftKings, Kambi, Novig) posting the row's line; and what the site you're betting on pays against that chance: fair × price − 1. The vig comes off by scaling both sides' implied chances to add up to 100%. A sharp book's one-way over at the row's line (FanDuel's anytime TD at 7.50x) is the most that book thinks the over's chance can be, so the fair chance never goes above it; the Fair cell says so when it does. That matters most for longshots, where books load more of their margin onto the long side: an anytime TD at +512/−764 scales to 15.6%, but FanDuel's 7.50x caps it at 13.3%. The "EV" toggle picks that site: Underdog's payout (UD), or Mise-o-jeu's price at the row's line (Mise). The chosen site's column heading is blue. Mise-o-jeu is a site to bet on, not a sharp price, so it never counts toward the fair chance, even when it posts both sides. Bovada is shown for comparison only: its prices are soft and it doesn't take Canadian players, so it neither counts toward the fair chance nor is a site to pick in the "EV" toggle. The best price is green when more than one book has the line. A standard 1.87x pick needs 53.5%, so a coin flip is already −6.5%. Only +EV picks and those worse than −15% are shaded. A book with a different line has its price greyed with its line under it and is left out of the fair chance. A FanDuel price can be an over with no under (FanDuel's "To Record 2+ Hits" is the over at 1.5): it can't be devigged, so it is never green and only caps the fair chance as above, and the Under side shows nothing for it. Where no sharp book has both sides at the row's line but one has a one-way over there under 3x (FanDuel's "Player to Record 3+ Shots on Goal" at 1.45x for an over 2.5), Fair and EV are an estimate, in lighter type marked "est", and kept conservative: the over is the price's implied chance less 10% (1.45x implies 69%, estimated at 62%), the under one minus the implied chance with the margin left in (31%). Longer prices carry too much of their margin on the over to guess at, so they get no estimate, and "+EV only" never counts an estimate. With no book on Underdog's line there is no fair chance or EV. "+EV only" keeps the picks above zero. A player's page says the same in a sentence, with a button to move to each book's line. Every site's column stays on narrower screens: the hit-rate columns go first, then a player's game moves under his name.
+- **2+ TDs** (NFL): its own tab, always at 1.5, so it doesn't crowd out the anytime TD row. A player gets a row when any book prices him there: DraftKings' "2+ TDs", FanDuel's "To Score 2+ Touchdowns", Mise-o-jeu's "2+" rung, Kambi, Novig and Bovada likewise. Underdog's own TD lines at 1.5 land here too. Most of these prices are one-way and long, so only Novig's two-way 2+ gives a fair chance and EV; otherwise the row shows each book's price for comparison.
+- **Last 10**: one bar per game, oldest to newest, with the line drawn across. Green landed on your side of the line, red did not.
+- **L5 / L10 / L20 / season / H2H**: share of games on your side of the line. H2H is every stored game against the next opponent. Samples under three games are shown but not shaded, and sort below real samples. Playoff games are left out of all of these unless you turn on "Include playoffs", on the board or on a player's page; the setting is shared and remembered.
+- **DvP**: where the opponent ranks in what it allows to the player's position group per game, measured against each opposing group's own average so a soft schedule doesn't flatter a defense. 1st is the stingiest. Only this season's games count, so the ranks are thin for the first few weeks and a team that hasn't played yet has none.
 
-# Refresh data for the last 7 days
-python nhl_pipeline.py refresh --days 7
+On a phone the board is laid out as an app rather than a shrunken table: each prop is a card with its chart and every hit rate, games and stats are swipeable chip rows, a bottom tab bar switches between the board, your watchlist and search, and a player's page gets a back button in the top bar. It can be added to the home screen.
 
-# Validate data for a specific player
-python nhl_pipeline.py validate "McDavid"
-```
+A player's page can split his games by teammate. Pick one from the Teammate list and switch between With and Without: every hit rate, the chart and the game log then use only the games that teammate played in, or only the ones he missed. A teammate counts for a game when he played in it for the same team, so one who has since been traded still works, and the games since he left count as without him. An NFL quarterback counts when he took half the snaps, or when he started and left hurt, since the game was planned around him. Add more than one to combine them (without A and without B).
 
-### Dashboard
+The slate is today's games for the NHL and MLB and the next seven days for the NFL. A slate is never counted in the hit rates until it rolls over, so a game in progress can't show up as a miss. It rolls over at 5 AM Eastern, or earlier once the league's schedule shows every one of the night's games final; a build or refresh after that moves the board to the new day and adds the night's games to the logs.
 
-Launch the dashboard:
+| | NHL | NFL | NBA | MLB |
+|---|---|---|---|---|
+| Which games count | every skater game; goalie starts only | any game with an offensive snap; a quarterback needs half the snaps | every game with minutes played: regular season, play-in and playoffs (the play-in counts with the playoffs), never the preseason | a hitter's starts in the lineup; a pitcher's starts on the mound |
+| Expected to play | on the roster and in the lineup within the team's last 5 games | played in one of the team's last 2 games | on the roster and in one of the team's last 5 games | in the posted lineup or, before it is out, on the active roster and started one of the team's last 3 games; pitchers: the probable starter only |
+| Typical line from | last 20 regular-season games | last 8 regular-season games | last 20 regular-season games | last 20 regular-season games |
+| Also shown | B2B tag and rest filter | snap counts | B2B tag and rest filter, minutes | lineup spot, plate appearances, pitch count |
 
-```bash
-streamlit run app.py
-```
+## Where the data comes from
 
-## Project Structure
+- **NHL game logs**: the NHL stats API (`api.nhle.com/stats/rest`), which returns official per-game numbers for every player in a date range. A day costs five requests however many games were played. Schedule and rosters come from `api-web.nhle.com`.
+- **NBA game logs**: ESPN's open site API (`site.api.espn.com`): the scoreboard lists a day's games and each game's summary carries its box score, so a day costs one request plus one per game, six at a time. Rosters come from the same API. The NBA's own stats.nba.com hangs for scripted requests and cdn.nba.com refuses them. Preseason games make the slate, so Underdog's preseason lines show against last season's games, but they never enter the logs: starters play a half. Book coverage was thin in the preseason: Pinnacle, FanDuel and Novig had NBA props, DraftKings, Kambi, Mise-o-jeu and Bovada only game lines, so their NBA maps are empty or unconfirmed and the build lists what they post once the season starts. Mise-o-jeu's NBA tag (`27726`) is its preseason one.
+- **MLB game logs**: the MLB Stats API (`statsapi.mlb.com`). It has no bulk game log, so a day costs one schedule request plus one boxscore per game, trimmed to the stored columns. Probable pitchers, posted lineups and active rosters come from the same API. A two-way player (Ohtani) is filed under one position so his page carries both his hitting and his pitching.
+- **NFL game logs**: [nflverse](https://github.com/nflverse/nflverse-data) weekly player stats, snap counts and schedule, one file each per season. The stat file has no row for a player who played without recording anything (a receiver with 36 snaps and no targets), so those games are added back as zeros from the snap counts; otherwise hit rates would run high.
+- **Lines**: Underdog's `over_under_lines` endpoint, one request per league. `state_config_id` is state-specific; if prices or availability look wrong, copy yours from the request in DevTools and set `UNDERDOG_STATE_CONFIG_ID`.
+- **Pinnacle prices**: the guest API Pinnacle's own site uses (`guest.api.arcadia.pinnacle.com`), two requests per league, no key. A prop is matched to a board row by player name and stat; a name two players on the board share is skipped. Each league's `PINNACLE_STATS` maps Pinnacle's stat names to ours, and the build lists any it doesn't recognize. In the NHL preseason Pinnacle posted goals only, so the other NHL names there are unconfirmed. For MLB the prop is named by the words after "Total" ("Total Earned Runs" has units "Runs").
+- **FanDuel prices**: the API FanDuel's own site uses (`sbapi.nj.sportsbook.fanduel.com`, set `FANDUEL_STATE` for another state), with the public key its pages send. One request per league plus one per prop tab per game on the slate. Over/under markets give a fair chance: pitcher strikeouts and outs, NFL yardage, receptions and passing TDs, NHL shots and goals. Most other props are one-way ladders, an over with no under: "To Record 2+ Hits" lists every player's price for two or more (the over at 1.5), "Zay Flowers - Alt Receptions" lists one player's price at each rung, and anytime goal and touchdown scorers are the over at 0.5. Those cover MLB batters, NHL points, assists and goals, NFL touchdowns and alternate yardage lines. Where FanDuel has several prices for a row, the row gets the one at its line (over/under first), else an over/under at another line, else the nearest rung. Each league's `FANDUEL_STATS` maps FanDuel's over/under market names to ours and `FANDUEL_LADDERS` the stat in its ladders. It isn't a published API, so it can change without notice; the build then falls back like any other fetch.
+- **DraftKings prices**: the API DraftKings' own site uses (`sportsbook-nash.draftkings.com`, state site `dkusny`, set `DRAFTKINGS_SITE` for another). That host refuses a request without the cookies the sportsbook's home page sets, so a fetch opens the home page first and keeps its cookies. Each league lists its prop categories, each category its subcategories by name; only the "... O/U" ones are two-way, and each league's `DRAFTKINGS_STATS` maps those names to ours (MLB batter and pitcher props, NFL passing, rushing, receiving and kicking, NHL shots, points, assists and saves). The rest are one-way "N+" ladders, each rung the over half a point below it (Macklin Celebrini's "3+" shots is the over at 2.5), and `DRAFTKINGS_LADDERS` maps those (NHL shots, points and assists, NFL receiving, rushing and rush + receiving, MLB batter props and pitcher strikeouts). Goals and touchdowns are fields, a runner per player in one market per game, and `DRAFTKINGS_FIELDS` maps those by name with the count as N: the NHL's "Anytime Goalscorer" and "2+ Goals", the NFL's "Anytime TD Scorer", "2+ TDs" and "3+ TDs" from its "TD Scorers" category (a team's D/ST runner is left out). The build lists any two-way subcategory it doesn't map, such as quarter props. Requests go three at a time, about 20 to 35 per league, because DraftKings refuses a burst. Same caveat as FanDuel: unpublished, so it can change or start refusing.
+- **Kambi prices**: the open offering API Kambi serves every sportsbook it runs from (`eu.offering-api.kambicdn.com`), no key or cookies. The brand code picks the book: `ubca` (Unibet Canada) by default, which posts the most two-way props; set `KAMBI_BRAND` for another (`rsiusnj` is BetRivers New Jersey). One request lists the league's games, then one per game. An offer is named by its criterion, and each league's `KAMBI_STATS` maps it to ours with its count written as N ("N+ Receptions By The Player - Including Overtime"). NFL passing, rushing, receiving and kicking come as over/unders and ladders, MLB hitting and pitcher strikeouts and outs likewise, and the NHL's goals, points and assists as yes/no ladders (a ladder's "No" is the under where Kambi posts one). Quarter, half and period offers are skipped quietly; the build lists other player offers it doesn't map (longest plays, defensive stats). Kambi writes some first names in full (Joshua Morrissey), which finds no row.
+- **Mise-o-jeu prices**: the content service Loto-Québec's Mise-o-jeu+ site uses (`content.mojp-sgdigital-jel.com`), no key or cookies, just the site's Origin. One request lists the league's games, then one per five games for their markets. A market is named by a group code, and each league's `MISE_STATS` maps those codes to ours. NHL shots, points and assists and most NFL yardage, receptions and attempts come as over/under pairs; the rest, and every MLB prop, are "N+" ladders, each rung the over half a point below it ("3+" is over 2.5). Quarter, half and period markets are skipped quietly; the build lists any other player market it doesn't map (sacks, longest plays). A name Mise spells differently from the game logs (Mitchell for Mitch Marner) finds no row.
+- **Novig prices**: the API Novig's own site uses (`api.novig.us/nbx/v1`), no key, cookies or login. Novig is a no-vig exchange, so its prices count as sharp. One request lists the league's games (`/trading/NHL/page`), then one per game on the slate before it starts (`/event-details/<id>/player-props`), three at a time. Each player's line has a strike and two outcomes, the over (Yes, "1+") and the under (No), priced as a chance: what it costs to buy that side (0.375 is 37.5%, a 2.67x price). A side nobody is offering leaves the line one-way. Each league's `NOVIG_STATS` maps Novig's market types ("SHOTS_ON_GOAL") to ours: NHL goals, shots, assists, points, power-play points and saves; NFL passing, rushing, receiving, anytime TDs and kicking; MLB batter and pitcher props. First scorer and longest-play markets are listed as unmapped. Novig's trading fees are only readable when logged in, so its prices are taken as posted. Same caveat as FanDuel: unpublished, so it can change without notice.
+- **Bovada prices**: the coupon service Bovada's own site uses (`www.bovada.lv/services`), no key or cookies. One request lists the league's games, then one per game, one at a time a second apart, since Bovada answers even three at once with "429 Too Many Requests" (a 429 is retried after a pause). A player's over/under is named "Total Receptions - Alvin Kamara (NOR)", his ladder "Alternate Receptions - Alvin Kamara (NOR)" with a rung per outcome ("3+ Receptions" is over 2.5), and a field ladder "Player to record 2+ Hits" with a runner per player ("a Hit" is 1+). Each league's `BOVADA_STATS` maps the name before the player, or the field name with its count as N, to ours. NHL shots and goalie saves come as over/unders and points, assists, power-play points, goals and blocks as ladders; NFL passing, rushing and receiving as both; MLB total bases, H+R+RBI and pitcher props as over/unders and the other batter props as ladders. Period, half and quarter markets are skipped; the build lists other player markets it doesn't map (longest plays, first scorer).
 
-- `nhl_pipeline.py`: Main data extraction script.
-- `app.py`: Streamlit dashboard application.
-- `data/`: Directory storing Parquet data files.
-- `requirements.txt`: Python dependencies.
-- `roadmap.md`: Future development plans.
+## Underdog lines viewer
+
+`site/ud.html` (**UD Lines** in the header) lists every line Underdog has up, in every sport it has them for, whether or not the board tracks the stat or has a price for it: fantasy points, quarter and half props, first TD scorer, longest plays, defensive stats, college football, soccer, tennis, UFC, esports. Pick a sport, then narrow by game, stat or a player's name; sort by any column. Each side shows Underdog's payout: green when it pays more than a standard pick, grey when less, a "Yes" side alone where Underdog offers only that. A struck-through line is the line before one of Underdog's discounts, and "alts" marks a stat Underdog has other lines for. The Payout menu narrows to standard lines (Higher and Lower both offered at the standard pick, line not discounted) or to everything else. A player whose line the NHL, NFL, NBA or MLB board covers is a link to his page there, at that line, with his hit rates; "On the board" keeps only those.
+
+The page fetches a sport's lines straight from Underdog when you pick it (the refresh button fetches again), so it is as fresh as the click, from disk or hosted alike. Without a sport, Underdog's endpoint answers every sport at once, some 35 MB, so the build makes that request once to learn which sports have lines up and what Underdog calls them; the page offers those. A sport that starts after the last build appears once the board is rebuilt.
+
+Not covered for the NFL yet: quarter and half props, longest reception/rush/completion, first and last touchdown scorer, and fantasy points (all of them are in the lines viewer). The weekly stats don't carry them, so the build skips those lines and says how many. The same goes for MLB first-inning props, which need play-by-play, and MLB fantasy points, whose scoring isn't confirmed here. NBA quarter props and fantasy points are skipped likewise.
+
+Game logs live in `data/<league>/boxscores/`: one file per finished season, and one small file per game date for the season in progress, so the daily commit is a few kilobytes. When a new season starts the previous one is folded into a single file automatically.
+
+If Underdog can't be reached, the build keeps the last lines it saved and says so at the top of the board. Each sportsbook falls back the same way; with nothing saved, the board shows without its prices. A copy saved on an earlier slate is never used, even with `--offline`: its lines are for games already played, and a book's old prices would land on today's rows by player and stat. The build fetches it again, and if that fails, it leaves the source out and says which slate the saved copy was from. A build whose Underdog lines are all for an earlier slate prints a warning, and a board opened with no lines from today's slate fetches them from Underdog itself, as the refresh button does.
+
+The refresh button in the header fetches Underdog's lines straight from the browser, so it works on the page opened from disk and on the hosted copy alike. One click refreshes every league: the page you are on updates at once, and the other leagues' pages pick up their new lines when you open them. Lines that haven't moved keep their hit rates; a moved or new line is recomputed from the player's game log file. The refreshed lines are remembered in that browser for the rest of the slate. A line Underdog has taken down disappears until the next build, and game logs themselves only update on a build. So do the sportsbook prices: the books refuse requests from a web page, so the button can't fetch them. A refreshed line keeps the build's prices, and its EV is recomputed against the new payout.
+
+## Publishing
+
+`.github/workflows/publish.yml` runs the tests, refreshes the logs, builds the boards and uploads `site/` to the whc.ca hosting account over FTPS every hour from late morning to the late games, plus once at 5 AM Eastern. Only files that changed are uploaded. To turn it on, add the repository secrets `FTP_SERVER`, `FTP_USERNAME` and `FTP_PASSWORD` (**Settings → Secrets and variables → Actions**). It uploads to `public_html/`; set the variable `FTP_DIR` for another folder (it must end in `/`, and is `./` for an FTP account already limited to the site's folder). Whether Pinnacle, FanDuel, DraftKings, Kambi, Novig, Mise-o-jeu and Bovada answer GitHub's runners hasn't been tested (Mise-o-jeu is a Québec site and may answer only Canadian addresses); if one doesn't, the build log says so and the hosted board shows no prices from it.
+
+## Layout
+
+    props/leagues/nhl.py    NHL data and everything hockey-specific (stats, positions, who counts as active)
+    props/leagues/nfl.py    the same for the NFL
+    props/leagues/nba.py    the same for the NBA
+    props/leagues/mlb.py    the same for MLB
+    props/store.py          parquet layout under data/<league>/boxscores
+    props/underdog.py       fetch and parse lines, match players to league ids
+    props/books.py          the sportsbooks (pinnacle.py, fanduel.py, draftkings.py, kambi.py, novig.py, mise.py, bovada.py) and matching their props to board rows
+    props/metrics.py        hit rates, typical lines, rest days, teammates, defense vs position
+    props/site.py           assemble a board, write site/
+    props/template.html     the page (inline CSS and JS, no dependencies)
+    props/ud.html           the Underdog lines viewer, which fetches its lines in the browser
+
+Adding a league means adding a module to `props/leagues/` with the surface described in `props/leagues/__init__.py`.

@@ -40,3 +40,9 @@ Thumbs.db
 
 # Logs
 *.log
+# Generated
+site/
+data/cache/
+
+# upload bundle of site/ for manual hosting
+sc-board-site.zip

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SC Board: making the whc.ca site more responsive</title>
+<style>
+:root { --page:#f4f6f8; --surface:#fff; --ink:#0d1b26; --ink2:#445564; --ink3:#6f7f8c; --rule:#d6dfe6; --accent:#1d5fc4; --good:#12805f; --bad:#b83232; --warn:#9a6b00; }
+@media (prefers-color-scheme: dark) { :root { --page:#0b0b0b; --surface:#151515; --ink:#f2f2f2; --ink2:#bdbdbd; --ink3:#8a8a8a; --rule:#2a2a2a; --accent:#6aa5f2; --good:#3cbf8f; --bad:#e06060; --warn:#d6a83a; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--page); color:var(--ink); font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+main { max-width: 920px; margin: 0 auto; padding: 36px 22px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.01em; }
+h2 { font-size: 18px; margin: 36px 0 10px; padding-top: 14px; border-top: 1px solid var(--rule); }
+h3 { font-size: 15px; margin: 22px 0 6px; }
+p, li { color: var(--ink2); }
+.sub { color: var(--ink3); margin: 0 0 24px; }
+.box { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; margin: 14px 0; }
+.verdict { border-left: 4px solid var(--accent); }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; margin: 10px 0; font-size: 14px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink3); }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+code, pre { font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+code { background: color-mix(in srgb, var(--ink) 7%, transparent); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+.tag { display:inline-block; font-size: 11px; font-weight: 700; letter-spacing:.04em; text-transform: uppercase; padding: 1px 7px; border-radius: 4px; margin-right: 6px; }
+.do { color: var(--good); border: 1px solid var(--good); }
+.no { color: var(--bad); border: 1px solid var(--bad); }
+.maybe { color: var(--warn); border: 1px solid var(--warn); }
+ol.rank > li { margin: 0 0 14px; }
+ol.rank > li > b { color: var(--ink); }
+.small { font-size: 13px; color: var(--ink3); }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<h1>Making the whc.ca site more responsive</h1>
+<p class="sub">Findings from four Haiku investigations (hosting rules, build timing, which sources a browser can fetch, GitHub Actions and FTP behaviour), each checked before being relied on. Saturday, Oct 10 2026.</p>
+
+<div class="box verdict">
+<p><b>Short version.</b> The site is slow to update because the workflow runs once an hour, at the top of the hour. That's the minute GitHub says it delays scheduled runs most. The build and upload are already fast: about a minute of fetching, four seconds of compute, and only the three board pages (about 4 MB) change between runs. The two changes that make the biggest difference: <b>run every 15 minutes at odd minutes</b>, which is free because the repo is public, and <b>have the page's refresh button also pull Kambi and Novig</b>, two of the sharp books, live in the browser. With that, the fair chance and EV move between publishes too. Building on the host or adding a PHP proxy there is not allowed by WHC's policy.</p>
+</div>
+
+<h2>What was measured</h2>
+<h3>Build time per publish run</h3>
+<table>
+<tr><th>Step</th><th class="n">NHL</th><th class="n">NFL</th><th class="n">MLB</th></tr>
+<tr><td>Underdog lines</td><td class="n">0.2 s</td><td class="n">4.8 s</td><td class="n">0.6 s</td></tr>
+<tr><td>Pinnacle / FanDuel / DraftKings</td><td class="n">0.2 / 1.0 / 2.1</td><td class="n">0.2 / 0.7 / 3.0</td><td class="n">0.1 / 0.3 / 2.1</td></tr>
+<tr><td>Kambi / Novig / Mise-o-jeu</td><td class="n">0.8 / 0.5 / 1.5</td><td class="n">1.0 / 0.5 / 1.6</td><td class="n">0.3 / 0.2 / 0.5</td></tr>
+<tr><td><b>Bovada</b> (a game a second, by design)</td><td class="n"><b>14.3 s</b></td><td class="n"><b>14.5 s</b></td><td class="n">1.6 s</td></tr>
+<tr><td>Compute and write (offline build)</td><td class="n">2.3 s</td><td class="n">0.9 s</td><td class="n">1.1 s</td></tr>
+</table>
+<p>Also: refreshing game logs takes 2.2 s, the viewer's sports list 8–11 s, and the tests about 2 s. Fetches run one book after another and one league after another, so a run's network time is about 60 s. That includes roughly 30 s of Bovada waiting out its own pacing. Add GitHub's setup and pip install, and a run is likely 2 to 3 minutes end to end. That's an estimate, since no Actions run has happened yet.</p>
+
+<h3>What gets uploaded</h3>
+<table>
+<tr><th>Part of site/</th><th class="n">Files</th><th class="n">Size</th><th class="n">Gzipped</th></tr>
+<tr><td>index.html / nfl.html / mlb.html</td><td class="n">3</td><td class="n">2.0 / 1.4 / 0.7 MB</td><td class="n">201 / 192 / 104 KB</td></tr>
+<tr><td>ud.html + ud/*.js</td><td class="n">4</td><td class="n">116 KB</td><td class="n"></td></tr>
+<tr><td>Player files p/nhl, p/nfl, p/mlb</td><td class="n">1067 / 764 / 1293</td><td class="n">20.0 / 2.9 / 8.3 MB</td><td class="n"></td></tr>
+</table>
+<p>Two back-to-back builds left 3,128 of 3,131 files byte-identical. Only the three board pages differed. I confirmed in its source that the FTP action (<code>SamKirkland/ftp-deploy</code>, <code>HashDiff.ts</code>) compares <b>content hashes</b>, so a normal run uploads the 3 pages plus whatever player files changed. Player files only change when new games land. The first upload sends all ~3,100 files (35 MB) once. After that, uploads are small.</p>
+
+<h3>WHC shared hosting rules (Acceptable Use Policy, <a href="https://whc.ca/legal/aup/">whc.ca/legal/aup</a>, checked directly)</h3>
+<ul>
+<li>§16: cron "must not be scheduled more often than once every 10 minutes", at most 5 cron jobs, never overlapping.</li>
+<li>§8(a): any process from the web server, cron or shell may not run "longer than 60 consecutive seconds", open more than 64 files at once, or use more than 5 threads.</li>
+<li>§6(a): resources may only be used "to serve data from your web sites".</li>
+<li>§11 (all accounts): "Proxy servers" are strictly forbidden.</li>
+<li>Servers are LiteSpeed on cPanel/CloudLinux, in Montreal, Toronto or Vancouver (you picked one at checkout). SSH comes with the Pro and Enterprise plans, not Go.</li>
+</ul>
+
+<h3>Which sources a browser can fetch itself (checked headers)</h3>
+<table>
+<tr><th>Source</th><th>Answers any website?</th><th>Notes</th></tr>
+<tr><td>Underdog</td><td><b>Yes</b> (<code>*</code>)</td><td>Already used by the refresh button and the lines viewer.</td></tr>
+<tr><td>Kambi (Unibet CA)</td><td><b>Yes</b> (<code>*</code>), confirmed</td><td>Sharp. 1 + one request per game.</td></tr>
+<tr><td>Novig</td><td><b>Yes</b> (<code>*</code>), confirmed</td><td>Sharp, no-vig. 1 + one request per game.</td></tr>
+<tr><td>Pinnacle</td><td>No</td><td>Answers only its own site (401 for any other).</td></tr>
+<tr><td>FanDuel, DraftKings, Bovada</td><td>No</td><td>No permission headers; DraftKings also refuses non-browser user agents.</td></tr>
+<tr><td>Mise-o-jeu</td><td>No</td><td>Only answers <code>miseojeuplus.espacejeux.com</code>.</td></tr>
+</table>
+
+<h2>Recommendations, best first</h2>
+<ol class="rank">
+<li><span class="tag do">do</span><b>Run every 15 minutes, at odd minutes.</b> GitHub's docs name the top of every hour as its high-load time, when scheduled runs get delayed. The repo is public, so Actions minutes are free. A 2–3 minute run every 15 minutes is well within limits, and the existing <code>concurrency: publish</code> group queues runs instead of overlapping them. For example, every 15 minutes from late morning to the late games, plus the 5 AM run:
+<pre>on:
+  schedule:
+    - cron: '7,22,37,52 0-3,15-23 * * *'   # every 15 min, 11:07 AM to 11:52 PM ET (EDT)
+    - cron: '13 9 * * *'                    # 5:13 AM ET: last night's stats</pre>
+I don't think splitting it into a fast "lines" job and a slow "logs" job is worth it. That was suggested, but refreshing logs takes 2 seconds and the tests 2 more, so there's little to save.</li>
+
+<li><span class="tag do">do</span><b>Let the refresh button pull Kambi and Novig too.</b> Both answer any website, and both are sharp books in the fair chance. Re-fetching them alongside Underdog would refresh the main lines and the fair chance and EV between publishes, at no cost to the host. It needs their parsers ported from Python to the page's JavaScript (about 150 lines). The other five books keep their publish-time prices.</li>
+
+<li><span class="tag do">do</span><b>Fetch the books at the same time instead of one after another.</b> Fetching all books for all leagues at once would cut a run's network time from about 60 s to about 15 s, bounded by Bovada's own pacing, which stays. Small change in <code>site.build</code> / <code>__main__</code>. It mostly helps once runs are every 15 minutes.</li>
+
+<li><span class="tag maybe">check</span><b>Make sure the pages are served compressed.</b> The boards shrink about 10x gzipped (2.0 MB → 201 KB). LiteSpeed usually compresses by default, but WHC doesn't say so. Check with:
+<pre>curl -sI -H 'Accept-Encoding: gzip, br' https://YOUR-DOMAIN/nfl.html | grep -i content-encoding</pre>
+If that prints nothing, a short <code>.htaccess</code> with <code>AddOutputFilterByType DEFLATE text/html application/javascript</code> and a short <code>Cache-Control</code> for <code>*.html</code> fixes it. I didn't have the domain, so I couldn't test this.</li>
+
+<li><span class="tag maybe">optional</span><b>Use an external trigger if GitHub's schedule still lags.</b> A free scheduler (for example cron-job.org) can call GitHub's <code>workflow_dispatch</code> API on the minute. It needs a fine-grained token limited to this repo with Actions write permission, kept only in that scheduler. That gives a third party a token, so only do it if the delays are still a problem after #1.</li>
+
+<li><span class="tag maybe">unknown</span><b>Will the books answer GitHub's servers?</b> Every fetch was tested from your Mac, a Canadian home connection. GitHub's runners are in US data centres. DraftKings, FanDuel and especially Mise-o-jeu (Québec) might refuse them or answer differently. The first real run's log will say: the build prints "fetch failed" per book and falls back to the cache. If Mise-o-jeu is refused, the fallback is to run the same publish from your Mac every 15 minutes (a launchd job doing the build plus the FTP upload).</li>
+
+<li><span class="tag no">don't</span><b>Build on the host, or put a PHP proxy there.</b> A proxy for FanDuel, DraftKings and others would be the obvious way around the browser restrictions, but §11 forbids proxy servers outright. Building on the host breaks §8 (a run needs about 60 s of network plus Python, and the cap is 60 s), §16 (cron every 10 minutes at most) and §6.</li>
+
+<li><span class="tag no">don't</span><b>Switch to <code>lftp mirror --only-newer</code>.</b> One report suggested it to skip unchanged files, but it compares modification times. Every Actions run starts from a fresh checkout and rebuilds every file, so all 3,100 files would look new and upload every time. The current action already skips unchanged files by hash.</li>
+</ol>
+
+<h2>How the reports held up</h2>
+<p class="small">Hosting: the policy quotes were accurate. It missed the §11 ban on proxies, which decides the proxy question, and I added it from the policy page. Build timing: numbers consistent and reproducible; its suggestion to move the "generated" timestamp out of the pages doesn't matter, since those pages change with every line move anyway. Browser access: I re-checked Kambi and Novig myself (both send <code>access-control-allow-origin: *</code>). Its note that DraftKings no longer needs the home-page cookies is from one test and isn't worth acting on. GitHub Actions and FTP: the schedule facts are cited from GitHub's docs. It couldn't confirm how the FTP action diffs files; I checked the source (content hash). Its <code>lftp --only-newer</code> suggestion would be a regression here (see the last item).</p>
+</main>
+</body>
+</html>

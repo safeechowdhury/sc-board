@@ -1,0 +1,68 @@
+name: Refresh and publish
+
+on:
+  schedule:
+    # 5 AM ET for last night's stats, then hourly from late morning (first pitch) through
+    # the West Coast puck drop so the Underdog lines stay current.
+    - cron: '0 0-2,9,15-23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Keeps the last good Underdog lines around for a run where the fetch fails.
+      - uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: lines-${{ github.run_id }}
+          restore-keys: lines-
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -t .
+
+      - name: Refresh game logs
+        run: python -m props refresh
+
+      - name: Build the boards
+        run: python -m props build
+
+      - name: Commit new game logs
+        run: |
+          if [[ -n $(git status --short data/nhl data/nfl data/nba data/mlb) ]]; then
+            git config user.name 'GitHub Action'
+            git config user.email 'action@github.com'
+            git add data/nhl data/nfl data/nba data/mlb
+            git commit -m "Game logs through $(date -u +'%Y-%m-%d')"
+            git push
+          else
+            echo "No new game logs."
+          fi
+
+      # Uploads site/ to the WHC hosting account. Only changed files go up: the action keeps
+      # a .ftp-deploy-sync-state.json on the server to compare against.
+      - name: Upload to whc.ca
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: site/
+          server-dir: ${{ vars.FTP_DIR || 'public_html/' }}

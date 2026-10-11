@@ -1,7 +1,2 @@
-streamlit
-polars
-httpx
-altair
-pandas
-selenium
-webdriver-manager
+polars>=1.37
+httpx>=0.28
