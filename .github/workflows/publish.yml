@@ -1,10 +1,7 @@
 name: Refresh and publish
 
 on:
-  schedule:
-    # 5 AM ET for last night's stats, then hourly from late morning (first pitch) through
-    # the West Coast puck drop so the Underdog lines stay current.
-    - cron: '0 0-2,9,15-23 * * *'
+  # manual only: run it from the Actions tab ("Run workflow"); no schedule
   workflow_dispatch:
 
 permissions:
