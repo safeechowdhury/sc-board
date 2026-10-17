@@ -40,6 +40,8 @@ LEAGUE_ATTR = "KALSHI_STATS"   # a league with no player series isn't asked for 
 URL = "https://api.elections.kalshi.com/trade-api/v2"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 MAX_WIDTH = 0.10   # the widest bid-ask spread a market can have and still count
+SHOW_WIDTH = 0.25   # ... and still be shown: a thin market (a goalie's saves before the bettors come) is a real
+                    # price to see, but Fair leaves out any pair over books.MAX_OVERROUND, so only shown
 
 
 def _client() -> httpx.Client:
@@ -137,6 +139,11 @@ def tight(yes: float | None, no: float | None) -> bool:
     return bool(yes and no) and yes + no <= 1 + MAX_WIDTH + 1e-9
 
 
+def shown(yes: float | None, no: float | None) -> bool:
+    """Whether both sides are on offer and within SHOW_WIDTH: worth a place on the board, if not in Fair."""
+    return bool(yes and no) and yes + no <= 1 + SHOW_WIDTH + 1e-9
+
+
 def fetch(league, now: dt.datetime | None = None, until: dt.datetime | None = None) -> dict:
     """The player props of every game in the league starting from now until `until` (by default, the
     end of its slate), before it starts."""
@@ -169,7 +176,8 @@ def fetch(league, now: dt.datetime | None = None, until: dt.datetime | None = No
 
 def parse(payload: dict, league) -> tuple[list[dict], Counter]:
     """The league's player props, plus a count of the series we don't map. A rung missing a side
-    or priced wider than MAX_WIDTH is left out, so every Kalshi price is two-way."""
+    or priced wider than SHOW_WIDTH is left out, so every Kalshi price is two-way; one wider than
+    MAX_WIDTH is shown but Fair leaves it out (books.MAX_OVERROUND)."""
     props, skipped = [], Counter()
     aliases = getattr(league, "TEAM_ALIASES", {})
     for m in payload.get("markets", []):
@@ -178,7 +186,7 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
             skipped[m["series"]] += 1
             continue
         yes, no = chance(m["yes"]), chance(m["no"])
-        if not m["player"] or not tight(yes, no):
+        if not m["player"] or not shown(yes, no):
             continue
         prop = {"player": m["player"], "stat": stat, "line": float(m["strike"]) if m["strike"] is not None else 0.5,
                 "over": round(1 / yes, 3), "under": round(1 / no, 3)}

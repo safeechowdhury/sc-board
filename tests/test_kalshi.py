@@ -27,8 +27,9 @@ class ParseTest(unittest.TestCase):
             market("KXNHLGOAL", "Tyler Seguin", 2.5, "0.9800", None),        # no bids: a placeholder ask
             market("KXNHLGOAL", "Tyler Seguin", 1.5, "0.3200", "0.9800"),    # 30 cents wide
             market("KXNHLGOAL", "Tyler Seguin", 0.5, "0.3400", "0.7500"),    # 9 cents: kept
+            market("KXNHLSAVE", "Jacob Fowler", 22.5, "0.5200", "0.6500"),   # 17 cents: shown (Fair leaves it out)
         ]}, nhl)
-        self.assertEqual([p["line"] for p in props], [0.5])
+        self.assertEqual([p["line"] for p in props], [0.5, 22.5])
 
     def test_a_first_scorer_has_no_strike_and_is_the_over_at_one_half(self):
         props, _ = kalshi.parse({"markets": [market("KXNHLFIRSTGOAL", "Tom Wilson", None, "0.0800", "0.9400")]}, nhl)

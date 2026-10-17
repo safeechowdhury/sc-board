@@ -27,7 +27,7 @@ import httpx
 
 from . import matchups, net
 from .icons import icon
-from .kalshi import chance, tight   # both sides on offer, within kalshi.MAX_WIDTH
+from .kalshi import chance, shown   # both sides on offer, within kalshi.SHOW_WIDTH
 
 KEY, NAME, SHORT = "polymarket", "Polymarket", "Poly"
 WEIGHT = 7       # an exchange's two-way prices, read as Kalshi's are (books.py)
@@ -110,7 +110,8 @@ def _line(m: dict) -> float:
 
 def parse(payload: dict, league) -> tuple[list[dict], Counter]:
     """The league's player props, plus a count of the market types we don't map. A rung missing a
-    side or priced wider than kalshi.MAX_WIDTH is left out, so every Polymarket price is two-way."""
+    side or priced wider than kalshi.SHOW_WIDTH is left out, so every Polymarket price is two-way (and Fair
+    leaves out one wider than books.MAX_OVERROUND)."""
     props, skipped = [], Counter()
     for m in payload.get("markets", []):
         stat = getattr(league, "POLYMARKET_STATS", {}).get(m["type"])
@@ -129,7 +130,7 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
         else:
             continue
         player = m["question"].split(":", 1)[0].strip() if ":" in m["question"] else ""
-        if not player or not tight(over, under):
+        if not player or not shown(over, under):
             continue
         props.append({"player": player, "stat": stat, "line": _line(m),
                       "over": round(1 / over, 3), "under": round(1 / under, 3),
