@@ -26,6 +26,7 @@ CACHE = store.DATA / "cache"
 TEMPLATE = Path(__file__).with_name("template.html")
 VIEWER = Path(__file__).with_name("ud.html")
 VIEWER_PAGE = "ud.html"
+HTACCESS = Path(__file__).with_name("htaccess")   # the host's settings: compressed pages, no stale copies
 SPORTS_KEPT = 30 * 60   # seconds the viewer's sport menu is used again before it is fetched anew
 
 
@@ -88,6 +89,54 @@ def _parse(book, answer, league) -> tuple[list[dict], Counter, str | None]:
 
 def _slate_date(start: str) -> dt.date:
     return slate_date(dt.datetime.fromisoformat(start.replace("Z", "+00:00")))
+
+
+# a row's player and its game, stored once each in the page instead of on every row
+_WHO, _WHERE = ("id", "name", "team", "pos"), ("opp", "home", "start", "game")
+
+
+def pack_rows(rows: list[dict]) -> dict:
+    """The board's rows as the page carries them, about half the size: each player's (id, name,
+    team, position) and each game's (opponent, home, start, key) once, and each row as
+    [player, game, mask, values...], where bit i of mask says the row has keys[i] (a row without
+    odds has no "over" at all, which isn't the same as null). The page's unpackRows undoes it,
+    so every row comes back exactly as built, keys in the same order."""
+    order = list(dict.fromkeys(key for row in rows for key in row))
+    keys = [key for key in order if key not in _WHO + _WHERE]
+    if len(keys) > 30:
+        raise ValueError(f"too many row keys to pack: {keys}")
+    who, where, out = {}, {}, []
+    for row in rows:
+        w = who.setdefault(tuple(row.get(key) for key in _WHO), len(who))
+        g = where.setdefault(tuple(row.get(key) for key in _WHERE), len(where))
+        mask, values = 0, []
+        for i, key in enumerate(keys):
+            if key in row:
+                mask |= 1 << i
+                values.append(row[key])
+        out.append([w, g, mask, *values])
+    return {"order": order, "keys": keys, "who": [list(w) for w in who], "where": [list(g) for g in where], "rows": out}
+
+
+def unpack_rows(packed: dict) -> list[dict]:
+    """pack_rows undone (the page does the same in JS, unpackRows)."""
+    rows = []
+    for w, g, mask, *values in packed["rows"]:
+        found = dict(zip(_WHO, packed["who"][w])) | dict(zip(_WHERE, packed["where"][g]))
+        it = iter(values)
+        found.update((key, next(it)) for i, key in enumerate(packed["keys"]) if mask >> i & 1)
+        rows.append({key: found[key] for key in packed["order"] if key in found})
+    return rows
+
+
+def _out() -> Path:
+    """site/, with the host's .htaccess in it."""
+    OUT.mkdir(exist_ok=True)
+    target = OUT / ".htaccess"
+    text = HTACCESS.read_text(encoding="utf-8")
+    if not target.exists() or target.read_text(encoding="utf-8") != text:
+        target.write_text(text, encoding="utf-8")
+    return OUT
 
 
 def _nav() -> list[list[str]]:
@@ -502,7 +551,7 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
         "prevSeason": None, "prevSeasonLabel": "", "lastGame": None,
         "props": [[key, label, short, league.TABS[key]] for key, (label, short) in league.PROPS.items()],
         "labels": [], "clock": [], "positions": {}, "kinds": {}, "groups": {}, "teams": 0, "rest": False,
-        "typicalGames": 0, "games": games, "rows": rows, "recent": {}, "recentPo": {},
+        "typicalGames": 0, "games": games, "rows": pack_rows(rows), "recent": {}, "recentPo": {},
         "comps": [part.get("COMPETITION") for part in getattr(league, "COMPETITIONS", [])],
         "standardOdds": standard.most_common(1)[0][0] if standard else None, "udIcon": underdog.ICON,
         "players": [], "dvp": {},
@@ -511,7 +560,7 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
         "books": _books_payload(quotes),
         "underdog": _underdog_payload(),
     }
-    OUT.mkdir(exist_ok=True)
+    _out()
     out = OUT / league.PAGE
     out.write_text(TEMPLATE.read_text(encoding="utf-8").replace("__NAME__", league.NAME)
                    .replace("__DATA__", _dumps(payload).replace("</", "<\\/")), encoding="utf-8")
@@ -672,7 +721,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
         "rest": league.REST,
         "typicalGames": league.TYPICAL_GAMES,
         "games": games,
-        "rows": rows,
+        "rows": pack_rows(rows),
         "recent": recent_games,
         "recentPo": recent_playoffs,
         "standardOdds": standard.most_common(1)[0][0] if standard else None,
@@ -688,7 +737,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
         "underdog": _underdog_payload(),
     }
 
-    OUT.mkdir(exist_ok=True)
+    _out()
     # the player files come from the game logs alone: unchanged logs (and players, and code) mean unchanged files
     made_from = _player_files_key(league, games_store.box, recent["player_id"].to_list())
     made = CACHE / f"{league.KEY}-players.key"

@@ -1,0 +1,13 @@
+# Written into site/ by every build (props/htaccess). For the Apache host the site is uploaded to.
+
+# Send the pages compressed: a 1.2 MB board goes over the wire as about 0.25 MB.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json
+</IfModule>
+
+# The pages change every publish: have browsers check for a new copy rather than show a stale one.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

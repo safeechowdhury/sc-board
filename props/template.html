@@ -489,6 +489,19 @@ svg { display: block; }
 (() => {
 "use strict";
 const D = JSON.parse(document.getElementById("data").textContent);
+// The rows come packed (site.pack_rows): each player and game once, each row as [player, game, mask,
+// values...], bit i of mask saying the row has keys[i]. Unpacked here into the rows as built.
+const unpackRows = P => P.rows.map(r => {
+  const found = {}, w = P.who[r[0]], g = P.where[r[1]];
+  ["id", "name", "team", "pos"].forEach((k, i) => { found[k] = w[i]; });
+  ["opp", "home", "start", "game"].forEach((k, i) => { found[k] = g[i]; });
+  let j = 3;
+  P.keys.forEach((k, i) => { if ((r[2] >>> i) & 1) found[k] = r[j++]; });
+  const row = {};
+  for (const k of P.order) if (k in found) row[k] = found[k];
+  return row;
+});
+if (!Array.isArray(D.rows)) D.rows = unpackRows(D.rows);
 const $ = (sel, el = document) => el.querySelector(sel);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 

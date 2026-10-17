@@ -24,6 +24,15 @@ def season_rows(season: int, dates: list[str], **extra) -> list[dict]:
              "name": "David Pastrnak", "team": "BOS", "opponent": "WPG", **extra} for d in dates]
 
 
+def page_data(html: str) -> dict:
+    """A board page's data, its rows unpacked as the page unpacks them."""
+    data = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', html, re.S)
+                      .group(1).replace("<\\/", "</"))
+    if isinstance(data.get("rows"), dict):
+        data["rows"] = site.unpack_rows(data["rows"])
+    return data
+
+
 class TempStore(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -88,8 +97,7 @@ class TempStore(unittest.TestCase):
              mock.patch("builtins.print"):
             out = site.build(league, **kwargs)
         html = out.read_text()
-        return json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', html, re.S)
-                          .group(1).replace("<\\/", "</"))
+        return page_data(html)
 
 
 class StoreTest(TempStore):
@@ -356,6 +364,17 @@ class BuildTest(TempStore):
         novig = next(book for book in data["books"] if book["key"] == "novig")
         self.assertEqual(novig["prices"], {})
         self.assertTrue(data["rows"])
+
+    def test_rows_travel_packed_and_unpack_exactly_and_the_host_gets_its_htaccess(self):
+        data = self.build()
+        html = (site.OUT / nhl.PAGE).read_text()
+        packed = json.loads(re.search(r'<script id="data" type="application/json">(.*?)</script>', html, re.S)
+                            .group(1).replace("<\\/", "</"))["rows"]
+        self.assertIsInstance(packed, dict)
+        self.assertEqual(len(packed["who"]), 2)                # Pastrnak and Bjorck, once each
+        self.assertEqual(site.unpack_rows(site.pack_rows(data["rows"])), data["rows"])
+        self.assertNotIn("over", next(row for row in data["rows"] if not row["ud"]))   # missing stays missing
+        self.assertIn("mod_deflate", (site.OUT / ".htaccess").read_text())
 
     def test_lines_for_a_slate_that_already_finished_are_dropped(self):
         self.lines["games"][0]["scheduled_at"] = "2026-10-01T23:00:00Z"
