@@ -13,7 +13,11 @@ from urllib.parse import urlencode
 import httpx
 import polars as pl
 
+from . import net
+from .icons import icon
+
 URL = "https://api.underdogfantasy.com/v1/over_under_lines"
+ICON = icon("underdog-tile.png")   # shown in place of "UD" in the EV toggle
 PARAMS = {
     "product": "fantasy",
     "product_experience_id": "018e1234-5678-9abc-def0-123456789002",
@@ -57,8 +61,9 @@ def sports() -> list[list]:
 
 
 def fetch(sport: str) -> dict:
-    r = httpx.get(request_url(sport), timeout=60,
-                  headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+    with net.site("underdog"):
+        r = httpx.get(request_url(sport), timeout=60,
+                      headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
     r.raise_for_status()
     return r.json()
 
@@ -68,6 +73,18 @@ def _offer(option: dict) -> dict:
     multiplier, where 1.0 is a standard pick."""
     odds = ((option.get("odds") or {}).get("fantasy") or {}).get("decimal")
     return {"odds": float(odds) if odds else None, "mult": float(option.get("payout_multiplier") or 1)}
+
+
+def matchup(title: str) -> tuple[str, str] | None:
+    """A game's (away, home) codes from its title: "PSU @ MICH", or soccer's home team first,
+    "ROM vs RMA". Mirrored as matchupOf in template.html."""
+    if " @ " in title:
+        away, home = title.split(" @ ", 1)
+        return away, home
+    if " vs " in title:
+        home, away = title.split(" vs ", 1)
+        return away, home
+    return None
 
 
 def parse(payload: dict, league) -> tuple[list[dict], Counter]:
@@ -87,7 +104,8 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
         app = appearances.get(stat.get("appearance_id")) or {}
         player = players.get(app.get("player_id"))
         game = games.get(app.get("match_id"))
-        if not player or not game or player.get("sport_id") != league.UNDERDOG_SPORT or " @ " not in game.get("title", ""):
+        teams = matchup(game.get("title", "")) if game else None
+        if not player or not teams or player.get("sport_id") != league.UNDERDOG_SPORT:
             continue
         if stat.get("stat") not in league.UNDERDOG_STATS:
             skipped[stat.get("display_stat") or stat.get("stat")] += 1
@@ -99,7 +117,7 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
         }
         if not sides:
             continue
-        away, home = (team(t) for t in game["title"].split(" @ "))
+        away, home = (team(t) for t in teams)
         is_home = app.get("team_id") == game.get("home_team_id")
         lines.append({
             "player": f"{player.get('first_name') or ''} {player.get('last_name') or ''}".strip(),
@@ -112,6 +130,7 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
             "over": sides.get("over"),
             "under": sides.get("under"),
             "start": game.get("scheduled_at"),
+            "matchup": game.get("full_team_names_title") or game["title"],   # "Real Betis Seville vs FC Barcelona"
         })
     return lines, skipped
 

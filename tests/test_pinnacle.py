@@ -40,6 +40,16 @@ class ParseTest(unittest.TestCase):
         payload["markets"][1]["prices"][1]["points"] = 1.5      # sides on different lines
         self.assertEqual(pinnacle.parse(payload, nhl)[0], [])
 
+    def test_soccers_to_score_is_a_yes_no_moneyline(self):
+        from props.leagues import soccer
+        payload = {"matchups": [{"id": 7, "startTime": "2099-01-01T00:00:00Z", "units": "Regular",
+                                 "special": {"category": "Player Props", "description": "Erling Haaland To Score"},
+                                 "participants": [{"id": 71, "name": "Yes"}, {"id": 72, "name": "No"}]}],
+                   "markets": [{"matchupId": 7, "type": "moneyline", "period": 0,
+                                "prices": [{"participantId": 71, "price": -120}, {"participantId": 72, "price": -101}]}]}
+        self.assertEqual(pinnacle.parse(payload, soccer)[0],
+                         [{"player": "Erling Haaland", "stat": "goals", "line": 0.5, "over": 1.833, "under": 1.99}])
+
     def test_other_matchups_and_periods_are_ignored(self):
         payload = pinnacle_payload([("Kaapo Kakko", "Goals", 0.5, 310, -474)])
         payload["matchups"].append({"id": 999, "units": "Goals", "special": {"category": "Game Props"}})
@@ -76,7 +86,8 @@ class PricesTest(unittest.TestCase):
         ladder = [{"player": "Zay Flowers", "stat": "receptions", "line": n - 0.5, "over": o, "under": None}
                   for n, o in ((3, 1.4), (4, 1.9), (5, 2.7), (6, 4.0))]
         main = {"player": "Zay Flowers", "stat": "receptions", "line": 3.5, "over": 1.95, "under": 1.85}
-        self.assertEqual(books.prices([main, *ladder], rows)[0], {"z|receptions": [4.5, 2.7, None]})
+        # the rung at the row's line first, then the book's two-way main line, for a page moved there
+        self.assertEqual(books.prices([main, *ladder], rows)[0], {"z|receptions": [4.5, 2.7, None, [[3.5, 1.95, 1.85]]]})
         exact = {**main, "line": 4.5, "over": 2.6, "under": 1.5}
         self.assertEqual(books.prices([*ladder, exact], rows)[0], {"z|receptions": [4.5, 2.6, 1.5]})   # two-way wins a tie
         self.assertEqual(books.prices([main, ladder[0]], rows)[0], {"z|receptions": [3.5, 1.95, 1.85]})

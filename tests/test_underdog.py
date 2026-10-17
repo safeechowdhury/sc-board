@@ -20,9 +20,14 @@ class ParseTest(unittest.TestCase):
             "player": "David Pastrnak", "team": "BOS", "opponent": "WPG", "home": False, "position": "C",
             "stat": "shots", "line": 3.5,
             "over": {"odds": 2.0, "mult": 1.07}, "under": {"odds": 1.66, "mult": 0.89},
-            "start": "2026-10-03T00:00:00Z",
+            "start": "2026-10-03T00:00:00Z", "matchup": "BOS @ WPG",
         }])
         self.assertFalse(skipped)
+
+    def test_a_soccer_title_names_the_home_team_first(self):
+        self.assertEqual(underdog.matchup("ROM vs RMA"), ("RMA", "ROM"))
+        self.assertEqual(underdog.matchup("PSU @ MICH"), ("PSU", "MICH"))
+        self.assertIsNone(underdog.matchup("Tournament Winner"))
 
     def test_home_player_and_stat_renames(self):
         lines, _ = underdog.parse(underdog_payload([

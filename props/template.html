@@ -94,9 +94,27 @@ button { cursor: pointer; }
 
 /* ---- layout ---- */
 .layout { display: grid; grid-template-columns: 196px minmax(0, 1fr); align-items: start; }
-.games { position: sticky; top: var(--top); max-height: calc(100dvh - var(--top)); overflow-y: auto; padding: 18px 12px 24px 20px; }
+.side { position: sticky; top: var(--top); max-height: calc(100dvh - var(--top)); overflow-y: auto; display: flex; flex-direction: column; }
+.games { padding: 14px 12px 24px 20px; }
+/* ---- settings: which books the board shows ---- */
+.settings { flex: none; margin: 16px 12px 0 20px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+.settings summary { padding: 8px 12px; cursor: pointer; font: 600 13px/1.2 var(--body); color: var(--ink-2); list-style: none; display: flex; align-items: center; gap: 8px; }
+.settings summary::-webkit-details-marker { display: none; }
+.settings summary::after { content: "\25BE"; margin-left: auto; color: var(--ink-3); }
+.settings[open] summary::after { content: "\25B4"; }
+.settings summary:hover { color: var(--ink); }
+.settings .sethead { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 12px 4px; font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.settings .sethead button { border: 0; background: none; padding: 0; color: var(--accent); font-size: 11px; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.settings label { display: flex; align-items: center; gap: 8px; padding: 5px 12px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.settings label:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); color: var(--ink); }
+.settings input { accent-color: var(--accent); margin: 0; }
+.settings .bookicon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
+.settings .bookname { flex: 1; }
+.settings .sharpdot { color: var(--ink-3); font-size: 11px; }
+.settings .setnote { margin: 4px 12px 10px; font-size: 11px; line-height: 1.35; color: var(--ink-3); }
 .games h2 { margin: 0 0 8px; font: 600 13px/1.2 var(--body); color: var(--ink-3); }
 .games h2:not(:first-child) { margin-top: 18px; }
+.games h3.comp { margin: 10px 0 4px; font: 600 11px/1.2 var(--body); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); }
 .game {
   display: block; width: 100%; margin: 0 0 4px; padding: 8px 10px 8px 12px; text-align: left;
   border: 0; border-left: 3px solid transparent; border-radius: 0 8px 8px 0; background: none;
@@ -112,6 +130,7 @@ button { cursor: pointer; }
 .game[aria-pressed="true"] { border-left-color: var(--accent); background: var(--surface); }
 .game b { display: block; font: 700 16px/1.2 var(--cond); letter-spacing: .02em; }
 .game span { display: block; font-size: 12px; color: var(--ink-3); }
+.game b small { font: 600 10px/1 var(--body); color: var(--ink-3); margin-right: 3px; vertical-align: 2px; }
 main { min-width: 0; padding: 14px 20px 48px 8px; }
 
 /* ---- filters ---- */
@@ -124,6 +143,11 @@ main { min-width: 0; padding: 14px 20px 48px 8px; }
 .seg { display: inline-flex; padding: 2px; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); }
 .seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--ink-2); font-size: 13px; }
 .seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); font-weight: 600; }
+/* every book's icon is a square tile (props/img), shown the same size with the same corners */
+.seg .bookicon { display: block; width: 20px; height: 20px; border-radius: 5px; object-fit: cover; }
+.board th .bookicon, .card-pin .bookicon { display: inline-block; width: 20px; height: 20px; border-radius: 5px; object-fit: cover; vertical-align: middle;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent); }   /* a faint edge, so a dark icon stays visible on a dark header */
+.board th.is-target .bookicon { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }   /* the site EV is measured on */
 .seg .seglabel { align-self: center; padding: 0 6px 0 8px; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .count { margin-left: auto; color: var(--ink-3); font-size: 13px; }
 .notice { margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--miss); background: var(--surface); color: var(--ink-2); }
@@ -150,7 +174,7 @@ main { min-width: 0; padding: 14px 20px 48px 8px; }
 .c-star { width: 36px; padding-left: 10px !important; padding-right: 0 !important; }
 .star { width: 28px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--ink-3); font-size: 16px; line-height: 1; }
 .star[aria-pressed="true"] { color: var(--accent); }
-.c-player { min-width: 170px; }
+.c-player { min-width: 0; }
 .playercell { display: flex; align-items: center; gap: 10px; }
 .board .playercell { gap: 8px; }
 .mug { position: relative; flex: none; width: 38px; height: 38px; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--ink) 9%, var(--surface)); display: grid; place-items: center; font: 700 13px/1 var(--cond); color: var(--ink-3); }
@@ -163,8 +187,8 @@ main { min-width: 0; padding: 14px 20px 48px 8px; }
 .meta { display: block; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .meta i { font-style: normal; font-weight: 600; color: var(--ink-2); }
 /* on the board the name, team and game share one line, the game giving way first */
-.board .who { display: flex; align-items: baseline; gap: 8px; max-width: 290px; }
-.board .who b { flex: none; max-width: 170px; font-size: 13px; }
+.board .who { display: flex; align-items: baseline; gap: 8px; }
+.board .who b { flex: none; max-width: 150px; font-size: 13px; }
 .board .meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
 .tag { display: inline-block; margin-left: 4px; padding: 0 5px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--ink-2); font: 600 11px/16px var(--cond); letter-spacing: .03em; }
 .inline-line { display: none; }
@@ -176,14 +200,30 @@ main { min-width: 0; padding: 14px 20px 48px 8px; }
 .more { display: block; width: 100%; margin-top: 10px; height: 40px; }
 .price { font: 600 15px/1.1 var(--cond); font-variant-numeric: tabular-nums; }
 .price.off { font-weight: 500; color: var(--ink-3); }
-.price.est, .heat.est { font-weight: 500; color: var(--ink-2); }   /* estimated from a one-way price */
-.price.est small { margin-left: 2px; font-size: 10px; color: var(--ink-3); }
 .price.best { color: var(--hit); }
 .heat.best { color: var(--hit); font-weight: 700; }
 .pinnote { display: block; margin-top: 2px; font-size: 10px; color: var(--ink-3); white-space: nowrap; }
 .board .price, .board .avg { font-size: 13px; }
 .board .pinnote { display: inline; margin: 0 0 0 3px; }
-.board .c-book .pinnote { display: block; margin: 1px 0 0; line-height: 1; }   /* another line's price: its line under it, so five book columns fit */
+.board .c-book .pinnote { display: block; margin: 1px 0 0; line-height: 1; font-size: 9.5px; letter-spacing: -0.2px; }
+/* The board fits the screen, never scrolling sideways: its other columns have set widths and the books
+   share what is left, evenly, so the icons line up. Where they'd get too narrow, fit() drops the stat
+   columns needed least, one at a time. */
+.board { table-layout: fixed; }
+.board th.c-star { width: 34px; }
+.board th.c-player { width: 210px; }
+.board th.c-line { width: 98px; }
+.board th.c-chart { width: 84px; }
+.board th.c-price { width: 54px; }
+.board th.c-fair { width: 52px; }
+.board th.c-ev { width: 64px; }
+.board th.c-l5, .board th.c-l10, .board th.c-dvp, .board th.c-avg { width: 52px; }
+.board th.c-l20, .board th.c-season, .board th.c-h2h { width: 74px; }   /* a rate with its games: "86% 14 gm" */
+.board td { overflow: hidden; }
+.board th.c-book, .board td.c-book { overflow: hidden; text-align: center; text-overflow: ellipsis; }
+.board .c-book .pinnote { overflow: hidden; text-overflow: ellipsis; }
+.no-c-avg .c-avg, .no-c-l20 .c-l20, .no-c-season .c-season, .no-c-h2h .c-h2h, .no-c-l5 .c-l5,
+.no-c-dvp .c-dvp, .no-c-l10 .c-l10, .no-c-chart .c-chart { display: none; }
 /* the site EV is measured against */
 .board th.is-target { color: var(--accent); }
 .board td.is-target .price:not(.none, .off) { font-weight: 700; }
@@ -272,19 +312,15 @@ svg { display: block; }
 
 /* ---- narrower screens ---- */
 /* every site's price stays: the columns needed least go first, then a player's game moves under his name */
-@media (max-width: 1549px) { .c-l20, .c-avg { display: none; } }
-@media (max-width: 1439px) { .c-fair, .c-h2h, .status .pin { display: none; } }
-@media (max-width: 1339px) { .c-l5, .c-season { display: none; } }
-@media (max-width: 1219px) { .board .who { display: block; } }
-@media (min-width: 1041px) and (max-width: 1099px) { .c-dvp { display: none; } }   /* the game list still takes a column */
-@media (min-width: 1041px) and (max-width: 1059px) { .c-l10 { display: none; } }
-@media (max-width: 909px) { .c-l10, .c-dvp { display: none; } }
-@media (max-width: 809px) { .c-chart { display: none; } }
+@media (max-width: 1439px) { .status .pin { display: none; } }
+@media (max-width: 1599px) { .board .who { display: block; } .board .who b { max-width: none; overflow: hidden; text-overflow: ellipsis; } }
 @media (max-width: 1040px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; max-height: none; overflow: visible; }
+  .settings { margin: 8px 16px 0; }
   .games { position: static; display: flex; gap: 6px; max-height: none; overflow-x: auto; padding: 12px 16px 2px; scrollbar-width: none; }
   .games::-webkit-scrollbar { display: none; }
-  .games h2 { display: none; }
+  .games h2, .games h3.comp { display: none; }
   .games .day { flex: none; align-self: stretch; width: auto; margin: 0; border: 1px solid var(--rule); border-radius: 10px; padding: 7px 12px; white-space: nowrap; }
   .games .day:not(:first-child) { margin-top: 0; }
   .games .day[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -413,7 +449,10 @@ svg { display: block; }
 </header>
 
 <div class="layout">
-  <nav class="games" id="games" aria-label="Games"></nav>
+  <aside class="side">
+    <details class="settings" id="settings"></details>
+    <nav class="games" id="games" aria-label="Games"></nav>
+  </aside>
   <main>
     <div class="filters">
       <div class="tabs" id="tabs" role="group" aria-label="Stat"></div>
@@ -642,7 +681,8 @@ const state = {
   evOnly: prefs.get("evonly", false),
   target: prefs.get("target", "ud"),   // the site EV is measured against: "ud", or a book marked a target
   playoffs: prefs.get("playoffs", false),   // count playoff games in every hit rate, on the board and on a player's page
-  sort: { key: "l10", dir: -1 },
+  sort: { key: D.oddsOnly ? "ev" : "l10", dir: -1 },
+  query: "",   // an odds board's search box filters its rows by player
   watch: new Set(prefs.get("watch", [])),
 };
 // A row's hit rates: regular season, or with playoff games counted where that changes them.
@@ -653,9 +693,13 @@ const gameTime = row => {
   const prefix = row.game.startsWith(D.date) ? "" : new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(start) + " ";
   return prefix + timeFmt.format(start);
 };
-// The sites to find EV on: Underdog, and each book marked one (Mise-o-jeu). A book that is neither sharp
-// nor a target (Bovada) is shown only.
-const TARGETS = [["ud", "Underdog", "UD"], ...D.books.filter(b => b.target).map(b => [b.key, b.name, b.short])];
+// The sites to find EV on: Underdog, and each book marked one (Mise-o-jeu, Betano). A book that is neither sharp
+// nor a target (Bovada) is shown only. A site with an icon shows it in the toggle in place of its name.
+// Books the reader has hidden (Settings, in the sidebar): shared by every league's page. Hiding a book only
+// takes it off the screen; its prices still count toward Fair.
+const hiddenBooks = new Set(prefs.get("hiddenBooks", []));
+const ALL_TARGETS = [["ud", "Underdog", "UD", D.udIcon], ...D.books.filter(b => b.target).map(b => [b.key, b.name, b.short, b.icon])];
+let TARGETS = ALL_TARGETS.filter(([key]) => !hiddenBooks.has(key));
 if (!TARGETS.some(([key]) => key === state.target)) state.target = "ud";
 const targetName = () => TARGETS.find(([key]) => key === state.target)[1];
 // The chosen site's decimal price for this side at the row's line, or null.
@@ -666,58 +710,157 @@ const targetPrice = (row, side, quotes) => {
 };
 // The over's chance with the vig removed: both implied chances scaled to add up to 100%.
 const devigOver = (over, under) => (1 / over) / (1 / over + 1 / under);
+const logit = p => Math.log(p / (1 - p)), unlogit = x => 1 / (1 + Math.exp(-x));
+const BOOK_NAME = Object.fromEntries(D.books.map(b => [b.key, b.name]));
+// What makes a fair chance count, in words: "Novig, Kalshi, or all of Pinnacle, DraftKings and FanDuel".
+const CONFIDENT_TEXT = (sets => sets.slice(0, -1).join(", ") + ", or " + sets[sets.length - 1])(
+  D.fair.confident.map(keys => keys.length === 1 ? BOOK_NAME[keys[0]] : "all of " + keys.slice(0, -1).map(k => BOOK_NAME[k]).join(", ")
+    + " and " + BOOK_NAME[keys[keys.length - 1]]));
 // The books on one side of a row's prop. quotes: each book's {line, over, under, price, oneWay, sharp},
 // in D.books order, null where it has none on this side. A one-way price (an over with no under, from
-// a ladder like "To Record 2+ Hits") can't be devigged. Against the row's line, the best over and the
-// best under among the sharp books posting both, devigged, give fair: the chance of this side. A sharp
+// a ladder like "To Record 2+ Hits") can't be devigged. fair, the chance of this side: each sharp book
+// (weight above 0) with both sides at the row's line, devigged, averaged in log-odds by its weight
+// (parts says whose); a pair implying more than 1 + maxOverround is too wide to count. A sharp
 // book's one-way over at the line still counts: margin included, it is the most that book thinks the
-// over's chance can be, so fair's over never goes above it (cap says whose). offer: the chosen site's
-// price (Underdog's payout or Mise-o-jeu's odds); ev: that price against fair. A site to bet on never
-// counts toward fair. With no sharp over and under at the line, a sharp book's one-way over there under
-// EST_MAX gives an estimate (est says whose), kept conservative: the over is its implied chance less
-// EST_CUT, the under one minus that implied chance with the margin left in. Longer prices carry too
-// much of their margin on the over to guess at.
-const EST_MAX = 3, EST_CUT = 0.1;
+// over's chance can be, so fair's over never goes above it (cap says whose). sure: the books behind
+// fair include a set in D.fair.confident (an exchange, or all of Pinnacle, DraftKings and FanDuel);
+// otherwise there is no fair or EV at all, only the books' prices (parts still says who had both sides).
+// offer: the chosen site's price (Underdog's payout or Mise-o-jeu's odds); ev: that price against
+// fair. A site to bet on never counts toward fair.
+// Every [line, over, under] a book has for a row: the row's own price, then its two-way prices at
+// other lines (the fourth item).
+const linesOf = entry => entry ? [entry.slice(0, 3), ...(entry[3] || [])] : [];
+// A book's over/unders for a row, by line.
+const overUnders = entry => linesOf(entry).filter(q => q[2] != null).sort((a, b) => a[0] - b[0]);
+// The book's price for a row at `line` on `side`: at the line, two-way first; then the nearest
+// two-way price, then the nearest one-way. The under side reads only prices with an under.
+function quoteAt(entry, line, side = "over") {
+  const rank = q => [q[0] === line ? 1 : 0, q[2] != null ? 1 : 0, -Math.abs(q[0] - line)];
+  const better = (a, b) => { const x = rank(a), y = rank(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+  const found = linesOf(entry).filter(q => side !== "under" || q[2] != null);
+  return found.length ? found.reduce((best, q) => better(q, best) ? q : best) : null;
+}
+// An exchange (D.fair.estimate) with no two-way price at the row's line still counts toward fair,
+// from its other lines' devigged chances: read across in log-odds between its lines either side of
+// the row's (between), or moved from its nearest line by the slope of the books' ladders for the
+// row, or failing that the slope of the stat's ladders across the board (moved). Its weight halves for each unit it reaches (a unit: a tenth of the line, at least 1),
+// and a move counts three quarters of that; a move of more than a unit, or of more than SHIFT_MAX
+// in log-odds (0.5 to 1.5 goals), isn't made.
+const SHIFT_MAX = 0.75;
+// a book's devigged chance of the over at each line it posts both sides of, by line
+const fairLines = entry => overUnders(entry).filter(q => 1 / q[1] + 1 / q[2] <= 1 + D.fair.maxOverround + 1e-9)
+  .map(q => [q[0], devigOver(q[1], q[2])]);
+// the over's change in log-odds per unit of line between `from` and `to`: each book's pair of
+// neighbouring lines nearest there, the median across books
+function ladderSlope(key, from, to, near = false) {
+  const mid = (from + to) / 2, slopes = [];
+  for (const b of D.books) {
+    const pts = fairLines(b.prices[key]);
+    let pick = null;
+    for (let i = 1; i < pts.length; i++) {
+      const gap = Math.abs((pts[i - 1][0] + pts[i][0]) / 2 - mid);
+      if (!pick || gap < pick[0]) pick = [gap, pts[i - 1], pts[i]];
+    }
+    const slope = pick && (logit(pick[2][1]) - logit(pick[1][1])) / (pick[2][0] - pick[1][0]);
+    // measuring a stat (near), only a pair of lines a unit or less either side of the row's
+    if (slope < 0 && isFinite(slope) && (!near || Math.abs(pick[1][0] - mid) <= Math.max(1, mid / 10)
+        && Math.abs(pick[2][0] - mid) <= Math.max(1, mid / 10))) slopes.push(slope);
+  }
+  slopes.sort((a, b) => a - b);
+  const n = slopes.length;
+  return !n ? null : n % 2 ? slopes[(n - 1) / 2] : (slopes[n / 2 - 1] + slopes[n / 2]) / 2;
+}
+// With no ladder for the row, the stat's: every ladder on the board for that stat, each slope
+// scaled by the square root of its line (a count's spread grows about so), the median, scaled
+// back to the row's line. Measured once a stat.
+const statSlopes = new Map();
+function statSlope(stat, line) {
+  if (!statSlopes.has(stat)) {
+    const seen = [];
+    for (const row of D.rows) {
+      if (row.stat !== stat) continue;
+      const slope = ladderSlope(watchKey(row), row.line, row.line, true);
+      if (slope != null) seen.push(slope * Math.sqrt(Math.max(row.line, 0.5)));
+    }
+    seen.sort((x, y) => x - y);
+    const n = seen.length;
+    statSlopes.set(stat, n < 3 ? null : n % 2 ? seen[(n - 1) / 2] : (seen[n / 2 - 1] + seen[n / 2]) / 2);
+  }
+  const unitSlope = statSlopes.get(stat);
+  return unitSlope == null ? null : unitSlope / Math.sqrt(Math.max(line, 0.5));
+}
+function estimateAt(key, entry, row) {
+  const line = row.line;
+  const pts = fairLines(entry);
+  if (!pts.length) return null;
+  const unit = Math.max(1, Math.abs(line) / 10);
+  const lo = pts.filter(p => p[0] < line).pop(), hi = pts.find(p => p[0] > line);
+  if (lo && hi) {
+    const t = (line - lo[0]) / (hi[0] - lo[0]);
+    return { over: unlogit(logit(lo[1]) + t * (logit(hi[1]) - logit(lo[1]))),
+             factor: Math.pow(0.5, Math.min(line - lo[0], hi[0] - line) / unit), how: `between ${lo[0]} and ${hi[0]}` };
+  }
+  const near = lo || hi, reach = Math.abs(line - near[0]);
+  const ladder = reach <= unit ? ladderSlope(key, near[0], line) : null;
+  const slope = ladder ?? (reach <= unit ? statSlope(row.stat, (line + near[0]) / 2) : null);
+  const shift = slope == null ? null : slope * (line - near[0]);
+  if (shift == null || Math.abs(shift) > SHIFT_MAX) return null;
+  return { over: unlogit(logit(near[1]) + shift), factor: 0.75 * Math.pow(0.5, reach / unit),
+           how: `moved from ${near[0]}${ladder == null ? ` by the board's ${STATS.get(row.stat)?.short || row.stat} ladders` : ""}` };
+}
+// A sharp book counts toward fair unless it's the site EV is measured against: a book is never measured
+// against itself (FanDuel's EV is against Novig, Kalshi, Pinnacle and DraftKings).
+const counts = b => b.sharp && b.key !== state.target;
 function market(row, side) {
   const key = watchKey(row);
+  const at = Object.fromEntries(D.books.map(b => [b.key, quoteAt(b.prices[key], row.line, side)]));
   const quotes = D.books.map(b => {
-    const q = b.prices[key], price = q && (side === "under" ? q[2] : q[1]);
-    return price != null ? { line: q[0], over: q[1], under: q[2], price, oneWay: q[2] == null, sharp: b.sharp } : null;
+    const q = at[b.key], price = q && (side === "under" ? q[2] : q[1]);
+    return price != null ? { line: q[0], over: q[1], under: q[2], price, oneWay: q[2] == null, sharp: b.sharp,
+                             ou: overUnders(b.prices[key]) } : null;
   });
   if (!quotes.some(Boolean)) return null;
-  const same = quotes.filter(q => q && q.sharp && !q.oneWay && q.line === row.line);
-  let fair = null, best = null, cap = null, est = null;
-  if (same.length) {
-    const over = Math.max(...same.map(q => q.over)), under = Math.max(...same.map(q => q.under));
-    let fairOver = devigOver(over, under);
-    // one-way prices from every sharp book, read from its raw [line, over, under]: on the Under side they have no quote
+  // the sharp books' two-way prices at the row's line, read from the raw [line, over, under]
+  const same = D.books.map(b => [b, at[b.key]]).filter(([b, q]) => counts(b) && q && q[2] != null && q[0] === row.line
+    && 1 / q[1] + 1 / q[2] <= 1 + D.fair.maxOverround + 1e-9);
+  const atLine = new Set(same.map(([b]) => b.key));
+  const est = D.books.filter(b => counts(b) && !atLine.has(b.key) && (D.fair.estimate || []).includes(b.key))
+    .map(b => [b, estimateAt(key, b.prices[key], row)]).filter(([, e]) => e);
+  let fair = null, best = null, cap = null, sure = false, parts = [];
+  if (same.length || est.length) {
+    parts = [...same.map(([b, q]) => ({ book: b.name, weight: b.weight, over: devigOver(q[1], q[2]) })),
+             ...est.map(([b, e]) => ({ book: b.name, weight: b.weight * e.factor, over: e.over, est: e.how }))];
+    const weight = parts.reduce((sum, part) => sum + part.weight, 0);
+    let fairOver = unlogit(parts.reduce((sum, part) => sum + part.weight * logit(part.over), 0) / weight);
     for (const b of D.books) {
-      const q = b.sharp && b.prices[key];
+      const q = counts(b) && at[b.key];
       if (q && q[2] == null && q[0] === row.line && 1 / q[1] < fairOver) { fairOver = 1 / q[1]; cap = { book: b.name, price: q[1] }; }
     }
-    fair = side === "under" ? 1 - fairOver : fairOver;
-    best = side === "under" ? under : over;
-  } else {
-    // the longest such over: the smallest chance any sharp book gives it
-    for (const b of D.books) {
-      const q = b.sharp && b.prices[key];
-      if (q && q[2] == null && q[0] === row.line && q[1] < EST_MAX && (!est || q[1] > est.price)) est = { book: b.name, price: q[1] };
-    }
-    if (est) fair = side === "under" ? 1 - 1 / est.price : (1 - EST_CUT) / est.price;
+    best = same.length ? Math.max(...same.map(([, q]) => side === "under" ? q[2] : q[1])) : null;
+    const posted = new Set([...same, ...est].map(([b]) => b.key));
+    sure = D.fair.confident.some(keys => keys.every(k => posted.has(k)));
+    if (sure) fair = side === "under" ? 1 - fairOver : fairOver;
   }
   const offer = targetPrice(row, side, quotes);
-  return { quotes, best, fair, cap, est, offer, same: same.length, ev: fair != null && offer ? fair * offer - 1 : null };
+  return { quotes, best, fair, cap, sure, parts, offer, same: same.length, est: est.length > 0,
+           ev: fair != null && offer ? fair * offer - 1 : null };
 }
+// why a row priced by sharp books short of CONFIDENT_TEXT has no fair chance
+const shortNote = m => (m.parts.length ? `only ${m.parts.map(part => part.book).join(" and ")} ${m.parts.length > 1 ? "have" : "has"} both sides here`
+  : "no sharp book has both sides here") + `; Fair and EV need ${CONFIDENT_TEXT}`;
+const partsNote = (m, side) => m.parts.map(part => `${part.book} ${fmtPct(side === "under" ? 1 - part.over : part.over)}`
+  + (part.est ? ` est. ${part.est}` : "")
+  + (m.parts.length > 1 ? ` (weight ${+part.weight.toFixed(1)})` : "")).join(", ");
 const capNote = m => `capped at ${m.cap.book}'s one-way over, ${fmtDec(m.cap.price)}`;
-const estNote = (m, side) => `estimated from ${m.est.book}'s one-way over, ${fmtDec(m.est.price)}: `
-  + (side === "under" ? "the rest of its implied chance, margin left in" : `its implied chance less ${EST_CUT * 100}%`);
 
+// A board without game logs (college football, soccer) is an odds board: no chart, hit rates or DvP.
+const HISTORY = new Set([null, "l5", "l10", "l20", "season", "h2h", "dvp", "avg"]);
 const COLUMNS = [
   { key: "name", label: "Player", cls: "c-player", dir: 1 },
   { key: "line", label: "Line", cls: "c-line", dir: -1 },
   { key: null, label: "Last 10", cls: "c-chart" },
-  { key: "price", label: "UD", cls: "c-price num", dir: -1, target: "ud" },
-  ...D.books.map(b => ({ key: "book:" + b.key, label: b.short, cls: "c-book num", dir: -1, target: b.key })),
+  { key: "price", label: "UD", name: "Underdog", icon: D.udIcon, cls: "c-price num", dir: -1, target: "ud" },
+  ...D.books.map(b => ({ key: "book:" + b.key, label: b.short, name: b.name, icon: b.icon, cls: `c-book num bk-${b.key}`, dir: -1, target: b.key })),
   { key: "fair", label: "Fair", cls: "c-fair num", dir: -1 },
   { key: "ev", label: "EV", cls: "c-ev num", dir: -1 },
   { key: "l5", label: "L5", cls: "c-l5 num", dir: -1 },
@@ -727,7 +870,7 @@ const COLUMNS = [
   { key: "h2h", label: "H2H", cls: "c-h2h num", dir: -1 },
   { key: "dvp", label: "DvP", cls: "c-dvp num", dir: -1 },
   { key: "avg", label: "L10 avg", cls: "c-avg num", dir: -1 },
-];
+].filter(c => !D.oddsOnly || !HISTORY.has(c.key));
 function sortValue(row, key) {
   switch (key) {
     case "name": return row.name;
@@ -747,6 +890,16 @@ function sortValue(row, key) {
     }
   }
 }
+// A game under way can't be bet: its lines leave the board when it starts, however long ago the
+// page was built. True if any left.
+function dropStarted() {
+  const now = Date.now(), ahead = x => Date.parse(x.start) > now;
+  const rows = D.rows.filter(ahead), games = D.games.filter(ahead);
+  if (rows.length === D.rows.length && games.length === D.games.length) return false;
+  D.rows = rows; D.games = games;
+  if (state.game && !games.some(g => g.key === state.game)) state.game = null;
+  return true;
+}
 function visibleRows() {
   const { key, dir } = state.sort;
   return D.rows
@@ -755,8 +908,9 @@ function visibleRows() {
       && (!state.game || r.game === state.game)
       && (!state.day || r.game.startsWith(state.day + "|"))
       && (!state.standardOnly || (r.ud && r[state.side].mult === 1))
-      && (!state.evOnly || (m => m?.ev > 0 && !m.est)(market(r, state.side)))   // an estimate is a guess, not an edge
-      && (!state.watchOnly || state.watch.has(watchKey(r))))
+      && (!state.evOnly || market(r, state.side)?.ev > 0)
+      && (!state.watchOnly || state.watch.has(watchKey(r)))
+      && (!state.query || fold(r.name).includes(state.query)))
     .map(r => [r, sortValue(r, key), rate(sample(r).season, state.side) ?? -1])
     .sort((a, b) => {
       if (a[1] == null || b[1] == null) return (a[1] == null) - (b[1] == null);   // no data sinks
@@ -786,23 +940,28 @@ function dvpCell(row) {
   const label = d ? allowedText(row.opp, groupOf(row.pos), STATS.get(row.stat).short, d) : "";
   return `<td class="num c-dvp"><span class="heat ${cls}" data-v="${ordinal(row.dvp)} of ${D.teams}" data-l="${esc(label)}">${ordinal(row.dvp)}</span></td>`;
 }
+// "PHI QB @ DAL, 8:20 PM", or a market row's matchup ("Chelsea @ Everton, 7:30 AM"): no book says his team
+const whereHtml = row => row.team
+  ? `<i>${esc(row.team)}</i> ${esc(posLabel(row.pos))} ${row.home ? "vs" : "@"} ${esc(row.opp)}, ${esc(gameTime(row))}`
+  : `${esc(row.matchup || "")}, ${esc(gameTime(row))}`;
 function rowHtml(row, i) {
   const s = STATS.get(row.stat), offer = row.ud ? row[state.side] : null, letter = state.side === "over" ? "O" : "U";
-  const est = row.ud ? "" : ` data-v="Typical line" data-l="from the last 20 games, not posted by Underdog"`;
+  const est = row.ud ? "" : D.oddsOnly ? ` data-v="Market line" data-l="the line most books price; Underdog has none"`
+    : ` data-v="Typical line" data-l="from the last 20 games, not posted by Underdog"`;
   const watched = state.watch.has(watchKey(row));
   const b2b = row.rest === 0 ? `<span class="tag" data-v="Back-to-back" data-l="played last night">B2B</span>` : "";
   return `<tr data-i="${i}" tabindex="0">
 <td class="c-star"><button class="star" type="button" aria-pressed="${watched}" aria-label="Watch ${esc(row.name)} ${esc(s.label)}">${watched ? "★" : "☆"}</button></td>
 <td class="c-player"><div class="playercell">${mugHtml(row.id, row.name)}<span class="who"><b>${esc(row.name)}</b>
 <span class="inline-line">${letter} ${row.line} ${esc(s.short)}<em>${offer ? fmtOdds(offer) : ""}</em></span>
-<span class="meta"><i>${esc(row.team)}</i> ${esc(posLabel(row.pos))} ${row.home ? "vs" : "@"} ${esc(row.opp)}, ${esc(gameTime(row))}${b2b}</span></span></div></td>
+<span class="meta">${whereHtml(row)}${b2b}</span></span></div></td>
 <td class="c-line"><span class="lineval${row.ud ? "" : " est"}"${est}>${letter} ${row.line}<small>${esc(s.short)}</small></span></td>
-<td class="c-chart">${row.last ? spark(row, state.side) : `<span class="meta">No ${esc(D.name)} games yet</span>`}</td>
+${D.oddsOnly ? "" : `<td class="c-chart">${row.last ? spark(row, state.side) : `<span class="meta">No ${esc(D.name)} games yet</span>`}</td>`}
 <td class="c-price num${state.target === "ud" ? " is-target" : ""}">${offer ? `<span class="price">${fmtOdds(offer)}</span>` : `<span class="price none">&ndash;</span>`}</td>
 ${pinCells(row)}
-${rateCell(row, "l5", "c-l5")}${rateCell(row, "l10", "c-l10")}${rateCell(row, "l20", "c-l20")}${rateCell(row, "season", "c-season", true)}${rateCell(row, "h2h", "c-h2h", true)}
+${D.oddsOnly ? "" : `${rateCell(row, "l5", "c-l5")}${rateCell(row, "l10", "c-l10")}${rateCell(row, "l20", "c-l20")}${rateCell(row, "season", "c-season", true)}${rateCell(row, "h2h", "c-h2h", true)}
 ${dvpCell(row)}
-<td class="num c-avg"><span class="avg">${sample(row).avg == null ? "&ndash;" : sample(row).avg.toFixed(1)}</span></td>
+<td class="num c-avg"><span class="avg">${sample(row).avg == null ? "&ndash;" : sample(row).avg.toFixed(1)}</span></td>`}
 </tr>`;
 }
 
@@ -810,19 +969,32 @@ ${dvpCell(row)}
 // for another line is greyed and says which line.
 // the best price among several books at the line; prices that show the same are all the best
 const isBest = (q, m) => m.same > 1 && q.sharp && !q.oneWay && fmtDec(q.price) === fmtDec(m.best);
+// every over/under the book posts for the row, for a hover: "33.5 1.88/1.86 · 38.5 2.30/1.60"
+const ouText = q => q.ou.map(o => `${o[0]} ${fmtDec(o[1])}/${fmtDec(o[2])}`).join(" \u00b7 ");
 function quoteHtml(q, m, row) {
   if (!q) return `<span class="price none">&ndash;</span>`;
-  if (q.oneWay) return `<span class="price${q.line === row.line ? "" : " off"}" data-v="One-way" data-l="the book posts only the over: no fair price">${fmtDec(q.price)}</span>`
-    + (q.line === row.line ? "" : `<small class="pinnote">at ${q.line}</small>`);
-  if (q.line !== row.line) return `<span class="price off">${fmtDec(q.price)}</span><small class="pinnote">at ${q.line}</small>`;
-  return `<span class="price${isBest(q, m) ? " best" : ""}">${fmtDec(q.price)}</span>`;
+  const others = q.ou.filter(o => o[0] !== q.line || q.oneWay);
+  const list = others.length ? ` data-v="Over/unders" data-l="${esc(ouText(q))}"` : "";
+  if (q.oneWay) {
+    // its nearest over/under goes under the one-way price, so the book's real line shows
+    const near = others.reduce((a, o) => !a || Math.abs(o[0] - row.line) < Math.abs(a[0] - row.line) ? o : a, null);
+    return `<span class="price${q.line === row.line ? "" : " off"}" data-v="One-way${near ? "; over/unders" : ""}"`
+      + ` data-l="the book posts only the over at ${q.line}: no fair price${near ? `. ${esc(ouText(q))}` : ""}">${fmtDec(q.price)}</span>`
+      + (q.line === row.line ? "" : `<small class="pinnote">at ${q.line}</small>`)
+      + (near ? `<small class="pinnote">O/U ${near[0]} ${fmtDec(state.side === "under" ? near[2] : near[1])}</small>` : "");
+  }
+  if (q.line !== row.line) return `<span class="price off"${list}>${fmtDec(q.price)}</span><small class="pinnote">at ${q.line}</small>`;
+  return `<span class="price${isBest(q, m) ? " best" : ""}"${list}>${fmtDec(q.price)}</span>`;
 }
 function pinCells(row) {
   const m = market(row, state.side), none = `<span class="price none">&ndash;</span>`;
-  const books = D.books.map((b, i) => `<td class="num c-book${b.key === state.target ? " is-target" : ""}">${m ? quoteHtml(m.quotes[i], m, row) : none}</td>`).join("");
-  const tip = !m ? "" : m.est ? ` data-v="Estimate" data-l="${esc(estNote(m, state.side))}"` : m.cap ? ` data-v="Capped" data-l="${esc(capNote(m))}"` : "";
-  return `${books}<td class="num c-fair">${m?.fair != null ? `<span class="price${m.est ? " est" : ""}"${tip}>${fmtPct(m.fair)}${m.est ? "<small>est</small>" : ""}</span>` : none}</td>`
-    + `<td class="num c-ev">${m?.ev != null ? `<span class="heat ${m.est ? "est" : evHeat(m.ev)}"${tip}>${fmtEv(m.ev)}</span>` : `<span class="heat none">&ndash;</span>`}</td>`;
+  const books = D.books.map((b, i) => `<td class="num c-book bk-${b.key}${b.key === state.target ? " is-target" : ""}">${m ? quoteHtml(m.quotes[i], m, row) : none}</td>`).join("");
+  const tip = !m || m.fair == null ? ""
+    : m.cap ? ` data-v="Capped" data-l="${esc(capNote(m))}"`
+    : ` data-v="Fair" data-l="${esc(partsNote(m, state.side))}"`;
+  return `${books}<td class="num c-fair">${m?.fair != null ? `<span class="price"${tip}>${fmtPct(m.fair)}</span>`
+    + (m.est ? `<small class="pinnote">est</small>` : "") : none}</td>`
+    + `<td class="num c-ev">${m?.ev != null ? `<span class="heat ${evHeat(m.ev)}"${tip}>${fmtEv(m.ev)}</span>` : `<span class="heat none">&ndash;</span>`}</td>`;
 }
 
 // The phone's version of a row: a card with everything on it, so nothing hides behind a hover.
@@ -837,25 +1009,31 @@ function cardHtml(row, i) {
   const watched = state.watch.has(watchKey(row));
   return `<li class="card" data-i="${i}" tabindex="0">
 <div class="card-head">${mugHtml(row.id, row.name)}<span class="who"><b>${esc(row.name)}</b>
-<span class="meta"><i>${esc(row.team)}</i> ${esc(posLabel(row.pos))} ${row.home ? "vs" : "@"} ${esc(row.opp)}, ${esc(gameTime(row))}${row.rest === 0 ? `<span class="tag">B2B</span>` : ""}</span></span>
+<span class="meta">${whereHtml(row)}${row.rest === 0 ? `<span class="tag">B2B</span>` : ""}</span></span>
 <button class="star" type="button" aria-pressed="${watched}" aria-label="Watch ${esc(row.name)} ${esc(s.label)}">${watched ? "★" : "☆"}</button></div>
-<div class="card-line"><span class="lineval${row.ud ? "" : " est"}">${state.side === "over" ? "Over" : "Under"} ${row.line}<small>${esc(s.label)}</small></span>${offer ? `<span class="price">${fmtOdds(offer)}</span>` : `<span class="price none">typical line</span>`}</div>
-${row.last ? spark(row, state.side, true) : `<span class="meta">No ${esc(D.name)} games yet</span>`}
-<div class="card-rates">${rateChip(row, "l5", "L5")}${rateChip(row, "l10", "L10")}${rateChip(row, "l20", "L20")}${rateChip(row, "season", esc(D.seasonLabel), true)}${rateChip(row, "h2h", "H2H", true)}<div><span class="k">DvP</span><span class="heat ${row.dvp == null ? "none" : dvpHeat(row)}">${row.dvp == null ? "&ndash;" : ordinal(row.dvp)}</span></div></div>
+<div class="card-line"><span class="lineval${row.ud ? "" : " est"}">${state.side === "over" ? "Over" : "Under"} ${row.line}<small>${esc(s.label)}</small></span>${offer ? `<span class="price">${fmtOdds(offer)}</span>` : `<span class="price none">${D.oddsOnly ? "market line" : "typical line"}</span>`}</div>
+${D.oddsOnly ? "" : `${row.last ? spark(row, state.side, true) : `<span class="meta">No ${esc(D.name)} games yet</span>`}
+<div class="card-rates">${rateChip(row, "l5", "L5")}${rateChip(row, "l10", "L10")}${rateChip(row, "l20", "L20")}${rateChip(row, "season", esc(D.seasonLabel), true)}${rateChip(row, "h2h", "H2H", true)}<div><span class="k">DvP</span><span class="heat ${row.dvp == null ? "none" : dvpHeat(row)}">${row.dvp == null ? "&ndash;" : ordinal(row.dvp)}</span></div></div>`}
 ${pinChips(row)}
 </li>`;
 }
 
+// a one-way price's nearest over/under, for a card: " · O/U 33.5 1.88"
+const nearOu = (q, row) => {
+  if (!q.oneWay || !q.ou.length) return "";
+  const o = q.ou.reduce((a, x) => Math.abs(x[0] - row.line) < Math.abs(a[0] - row.line) ? x : a);
+  return ` \u00b7 O/U ${o[0]} ${fmtDec(state.side === "under" ? o[2] : o[1])}`;
+};
 function pinChips(row) {
   const m = market(row, state.side);
   if (!m) return "";
   const chip = (label, value, cls) => `<div><span class="k">${label}</span><span class="heat ${cls}">${value}</span></div>`;
-  const books = D.books.map((b, i) => [b, m.quotes[i]]).filter(([, q]) => q)
-    .map(([b, q]) => chip(esc(b.short), q.line === row.line ? fmtDec(q.price) : `${fmtDec(q.price)} at ${q.line}`,
+  const books = D.books.map((b, i) => [b, m.quotes[i]]).filter(([b, q]) => q && !hiddenBooks.has(b.key))
+    .map(([b, q]) => chip(b.icon ? `<img class="bookicon" src="${b.icon}" alt="${esc(b.name)}" title="${esc(b.name)}">` : esc(b.short), (q.line === row.line ? fmtDec(q.price) : `${fmtDec(q.price)} at ${q.line}`) + nearOu(q, row),
       q.line !== row.line ? "none" : isBest(q, m) ? "best" : "")).join("");
   return `<div class="card-rates card-pin">${books}`
-    + `${chip(m.est ? "Fair est" : "Fair", m.fair != null ? fmtPct(m.fair) : "&ndash;", m.fair == null ? "none" : m.est ? "est" : "")}`
-    + `${chip(`EV ${esc(TARGETS.find(([key]) => key === state.target)[2])}`, m.ev != null ? fmtEv(m.ev) : "&ndash;", m.ev == null ? "none" : m.est ? "est" : evHeat(m.ev))}</div>`;
+    + `${chip("Fair", m.fair != null ? fmtPct(m.fair) : "&ndash;", m.fair == null ? "none" : "")}`
+    + `${chip(`EV ${esc(TARGETS.find(([key]) => key === state.target)[2])}`, m.ev != null ? fmtEv(m.ev) : "&ndash;", m.ev == null ? "none" : evHeat(m.ev))}</div>`;
 }
 
 // A full slate is thousands of rows, so the board is drawn a page at a time as you scroll.
@@ -878,9 +1056,9 @@ function renderBoard() {
   const wrap = $("#boardwrap");
   if (!shown.length) {
     const why = !D.rows.length ? ["No games on the slate", "Search a player above to see their game log."]
-      : state.udOnly && !D.rows.some(r => r.ud) ? ["No Underdog lines posted yet", "They usually go up the morning of the game. Turn off \u201cUnderdog lines only\u201d to see every player at a typical line."]
+      : state.udOnly && !D.rows.some(r => r.ud) ? ["No Underdog lines posted yet", `They usually go up the morning of the game. Turn off \u201cUnderdog lines only\u201d to see every player at ${D.oddsOnly ? "the market\u2019s" : "a typical"} line.`]
       : state.watchOnly ? ["Your watchlist is empty for this view", "Star a line to keep it here."]
-      : state.evOnly ? ["No +EV lines in this view", `The sharp books price every pick here below ${targetName()}'s break-even. Turn off \u201c+EV only\u201d to see them all.`]
+      : state.evOnly ? ["No +EV lines in this view", `The sharp books price every pick here below ${targetName()}'s break-even, or too few of them price it to count (${CONFIDENT_TEXT} must have both sides). Turn off \u201c+EV only\u201d to see them all.`]
       : ["No lines match these filters", "Try another stat, game, date or side."];
     wrap.innerHTML = `<div class="empty"><b>${why[0]}</b>${why[1]}</div>`;
     return;
@@ -893,12 +1071,67 @@ function renderBoard() {
   }
   wrap.innerHTML = `<table class="board"><thead><tr>${headHtml()}</tr></thead><tbody>${shown.slice(0, drawn).map(rowHtml).join("")}</tbody></table>${more}`;
   if (more) moreWatcher.observe($("#more"));
+  fit();
 }
+// The stat columns dropped, least needed first, while the shown books' columns are narrower than BOOK_MIN.
+const DROPS = ["c-avg", "c-l20", "c-season", "c-h2h", "c-l5", "c-dvp", "c-l10", "c-chart"];
+const BOOK_MIN = 58;
+function fit() {
+  const wrap = $("#boardwrap"), table = wrap.querySelector("table.board");
+  if (!table) return;
+  wrap.classList.remove(...DROPS.map(c => "no-" + c));
+  const book = [...table.querySelectorAll("thead th.c-book")].find(th => th.offsetWidth);
+  if (!book) return;
+  for (const c of DROPS) {
+    if (book.offsetWidth >= BOOK_MIN) break;
+    wrap.classList.add("no-" + c);
+  }
+}
+let fitting = 0;
+addEventListener("resize", () => { cancelAnimationFrame(fitting); fitting = requestAnimationFrame(fit); });
+
+// ---- settings: the books shown ----
+function applyHidden() {
+  let style = $("#hidebooks");
+  if (!style) { style = document.createElement("style"); style.id = "hidebooks"; document.head.append(style); }
+  style.textContent = [...hiddenBooks].map(key => `.bk-${CSS.escape(key)}`).join(", ") + (hiddenBooks.size ? " { display: none; }" : "");
+}
+function renderSettings() {
+  const el = $("#settings"), open = el.open;
+  const shownCount = D.books.filter(b => !hiddenBooks.has(b.key)).length;
+  el.innerHTML = `<summary><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>Settings</summary>`
+    + `<div class="sethead"><span>Books (${shownCount}/${D.books.length})</span><button type="button" data-all="${hiddenBooks.size ? "show" : "hide"}">${hiddenBooks.size ? "Show all" : "Hide all"}</button></div>`
+    + D.books.map(b => `<label title="${esc(b.name)}${b.sharp ? ", counts toward Fair" : b.target ? ", a site to bet on" : ""}"><input type="checkbox" data-book="${esc(b.key)}"${hiddenBooks.has(b.key) ? "" : " checked"}>`
+      + `${b.icon ? `<img class="bookicon" src="${b.icon}" alt="">` : ""}<span class="bookname">${esc(b.name)}</span>${b.sharp ? `<span class="sharpdot" title="counts toward Fair">sharp</span>` : ""}</label>`).join("")
+    + `<p class="setnote">A hidden book still counts toward Fair. Saved in this browser, for every league.</p>`;
+  el.open = open;
+}
+function setHidden(keys) {
+  hiddenBooks.clear(); for (const k of keys) hiddenBooks.add(k);
+  prefs.set("hiddenBooks", [...hiddenBooks]);
+  TARGETS = ALL_TARGETS.filter(([key]) => !hiddenBooks.has(key));
+  if (!TARGETS.some(([key]) => key === state.target)) { state.target = "ud"; prefs.set("target", state.target); }
+  applyHidden(); renderSettings(); renderTabs(); renderBoard();
+  if (games) renderPlayer();
+}
+$("#settings").addEventListener("change", e => {
+  const box = e.target.closest("input[data-book]"); if (!box) return;
+  const keys = new Set(hiddenBooks);
+  box.checked ? keys.delete(box.dataset.book) : keys.add(box.dataset.book);
+  setHidden(keys);
+});
+$("#settings").addEventListener("click", e => {
+  const b = e.target.closest("button[data-all]"); if (!b) return;
+  setHidden(b.dataset.all === "show" ? [] : D.books.map(x => x.key));
+});
 function headHtml() {
   return `<th class="c-star" scope="col"><span class="sr">Watchlist</span></th>` + COLUMNS.map(c => {
     const sorted = c.key && c.key === state.sort.key;
     const aria = sorted ? ` aria-sort="${state.sort.dir < 0 ? "descending" : "ascending"}"` : "";
-    return `<th class="${c.cls}${c.target === state.target ? " is-target" : ""}" scope="col"${aria}>${c.key ? `<button type="button" data-sort="${c.key}">${esc(c.label)}</button>` : `<span>${esc(c.label)}</span>`}</th>`;
+    // a book's heading is its icon, where it has one; its name is the hover title and what a screen reader says
+    const label = c.icon ? `<img class="bookicon" src="${c.icon}" alt="${esc(c.name)}">` : esc(c.label);
+    const title = c.icon ? ` title="${esc(c.name)}"` : "";
+    return `<th class="${c.cls}${c.target === state.target ? " is-target" : ""}" scope="col"${aria}>${c.key ? `<button type="button" data-sort="${c.key}"${title}>${label}</button>` : `<span>${label}</span>`}</th>`;
   }).join("");
 }
 // Switching the EV site only changes the highlighted column and each drawn row's prices, fair and EV,
@@ -926,8 +1159,8 @@ function renderTabs() {
   const tabs = [["all", "All", "All props"], ...[...STATS].filter(([key]) => present.has(key)).map(([key, s]) => [key, s.tab, s.label])];
   $("#tabs").innerHTML = tabs.map(([key, label, full]) => `<button type="button" data-stat="${key}" title="${esc(full)}" aria-pressed="${state.stat === key}">${esc(label)}</button>`).join("");
   for (const b of $("#side").children) b.setAttribute("aria-pressed", b.dataset.side === state.side);
-  $("#target").innerHTML = TARGETS.length < 2 ? "" : `<span class="seglabel">EV</span>` + TARGETS.map(([key, name, short]) =>
-    `<button type="button" data-target="${key}" title="Measure EV against ${esc(name)}'s price" aria-pressed="${state.target === key}">${esc(short)}</button>`).join("");
+  $("#target").innerHTML = TARGETS.length < 2 ? "" : `<span class="seglabel">EV</span>` + TARGETS.map(([key, name, short, icon]) =>
+    `<button type="button" data-target="${key}" title="Measure EV against ${esc(name)}'s price" aria-pressed="${state.target === key}">${icon ? `<img class="bookicon" src="${icon}" alt="${esc(short)}">` : esc(short)}</button>`).join("");
   $("#watchonly").setAttribute("aria-pressed", state.watchOnly);
   $("#standard").textContent = `UD standard${D.standardOdds ? ` (${D.standardOdds.toFixed(2)}x)` : ""}`;
   $("#standard").setAttribute("aria-pressed", state.standardOnly);
@@ -944,19 +1177,26 @@ function renderTabbar() {
   for (const b of $("#tabbar").children) b.dataset.tab === current ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current");
 }
 function renderGames() {
-  let html = "", day = null;
-  const days = new Set(D.games.map(g => g.date));
-  if (!days.has(state.day)) state.day = null;
-  if (D.games.length > 1) html += `<button class="game" type="button" data-game="" aria-pressed="${!state.game && !state.day}"><b>All games</b><span>${D.rows.filter(r => r.ud).length} Underdog lines</span></button>`;
-  for (const g of D.games) {
-    if (g.date !== day) {
-      day = g.date;
-      const label = (g.date === D.date ? "Today, " : "") + esc(dayLabel(g.date));
-      // with more than one date on the slate, each date is a filter of its own
-      html += days.size > 1 ? `<button class="day" type="button" data-day="${esc(g.date)}" aria-pressed="${state.day === g.date}">${label}</button>` : `<h2>${label}</h2>`;
+  // by day, then (a league of several competitions) by competition, each game by its matchup and kickoff
+  let html = "";
+  const days = [...new Set(D.games.map(g => g.date))];
+  if (!days.includes(state.day)) state.day = null;
+  if (D.games.length > 1) html += `<button class="game" type="button" data-game="" aria-pressed="${!state.game && !state.day}"><b>All games</b></button>`;
+  const comps = D.comps || [], rank = comp => comps.includes(comp) ? comps.indexOf(comp) : comps.length;
+  for (const date of days) {
+    const label = (date === D.date ? "Today, " : "") + esc(dayLabel(date));
+    // with more than one date on the slate, each date is a filter of its own
+    html += days.length > 1 ? `<button class="day" type="button" data-day="${esc(date)}" aria-pressed="${state.day === date}">${label}</button>` : `<h2>${label}</h2>`;
+    const games = D.games.filter(g => g.date === date);
+    const groups = comps.length ? [...new Set(games.map(g => g.comp || null))].sort((a, b) => rank(a) - rank(b)) : [null];
+    for (const comp of groups) {
+      if (comps.length) html += `<h3 class="comp">${esc(comp || "Other")}</h3>`;
+      for (const g of games.filter(g => !comps.length || (g.comp || null) === comp)) {
+        const when = g.state === "upcoming" ? timeFmt.format(new Date(g.start)) : g.state === "final" ? "Final" : "Live";
+        const team = side => `${g[side + "Rank"] ? `<small>${g[side + "Rank"]}</small>` : ""}${esc(g[side])}`;   // a college ranking, small
+        html += `<button class="game" type="button" data-game="${esc(g.key)}" aria-pressed="${state.game === g.key}"><b>${team("away")} @ ${team("home")}</b><span>${when}</span></button>`;
+      }
     }
-    const when = g.state === "upcoming" ? timeFmt.format(new Date(g.start)) : g.state === "final" ? "Final" : "Live";
-    html += `<button class="game" type="button" data-game="${esc(g.key)}" aria-pressed="${state.game === g.key}"><b>${esc(g.away)} @ ${esc(g.home)}</b><span>${when}, ${g.lines ? g.lines + " UD lines" : "no UD lines yet"}</span></button>`;
   }
   $("#games").innerHTML = html || `<h2>No games today</h2>`;
 }
@@ -976,7 +1216,7 @@ function renderStatus() {
   const stamp = iso => (slateDate(iso) === D.date ? timeFmt : stampFmt).format(new Date(iso));
   const priced = D.books.filter(b => b.fetched).sort((x, y) => x.fetched.localeCompare(y.fetched));
   if (priced.length) status.innerHTML += `<span class="wide pin"> &middot; Prices ${esc(stamp(priced[0].fetched))}</span>`;
-  status.title = [`Game logs through ${dayLabel(D.lastGame)}`, ...priced.map(b => `${b.name} prices ${stamp(b.fetched)}`)].join("\n");
+  status.title = [...(D.lastGame ? [`Game logs through ${dayLabel(D.lastGame)}`] : []), ...priced.map(b => `${b.name} prices ${stamp(b.fetched)}`)].join("\n");
   $("#notice").innerHTML = L.error
     ? `<p class="notice"><b>Couldn't reach Underdog.</b> ${fetched ? `Showing the lines from ${esc(fetched)}.` : "There are no saved lines to show."} <span class="meta">${esc(L.error)}</span></p>`
     : "";
@@ -994,8 +1234,8 @@ $("#target").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b || b.dataset.target === state.target) return;
   state.target = b.dataset.target; prefs.set("target", state.target);
   for (const x of $("#target").querySelectorAll("button")) x.setAttribute("aria-pressed", x.dataset.target === state.target);
-  // which rows show, and their order, only follow the site under "+EV only" or a sort by EV
-  if (state.evOnly || state.sort.key === "ev") renderBoard();
+  // which rows show, and their order, only follow the site under "+EV only" or a sort by EV or fair
+  if (state.evOnly || state.sort.key === "ev" || state.sort.key === "fair") renderBoard();   // fair leaves the target out
   else retarget();
 });
 $("#watchonly").addEventListener("click", () => { state.watchOnly = !state.watchOnly; renderTabs(); renderBoard(); });
@@ -1063,6 +1303,11 @@ const q = $("#q"), results = $("#results");
 let matches = [], cursor = 0;
 function renderResults() {
   const term = fold(q.value.trim());
+  if (D.oddsOnly) {   // no player pages to open: the box filters the board
+    if (term !== state.query) { state.query = term; renderBoard(); }
+    results.hidden = true;
+    return;
+  }
   matches = term.length < 2 ? [] : D.players.filter(p => fold(p[1]).includes(term)).slice(0, 8);
   cursor = 0;
   const overlay = document.body.classList.contains("searching");   // the phone's full-screen search
@@ -1075,12 +1320,14 @@ function renderResults() {
 }
 function openSearch() {
   document.body.classList.add("searching");
-  q.value = ""; renderResults(); q.focus(); renderTabbar();
+  if (!D.oddsOnly) q.value = "";
+  renderResults(); q.focus(); renderTabbar();
 }
 function closeSearch() {
   if (!document.body.classList.contains("searching")) return;
   document.body.classList.remove("searching");
-  q.value = ""; results.hidden = true; q.blur(); renderTabbar();
+  if (!D.oddsOnly) q.value = "";   // an odds board's filter stays on when the phone's search closes
+  results.hidden = true; q.blur(); renderTabbar();
 }
 $("#cancelsearch").addEventListener("click", closeSearch);
 function pick(id) {
@@ -1257,14 +1504,15 @@ function renderPlayer() {
   const mk = market({ id: view.id, stat: view.stat, line: view.line, ud: posted?.line === view.line,
     over: posted?.over, under: posted?.under }, view.side);
   const offered = new Set();   // one button per line the page isn't on
-  const pinText = !mk ? "" : D.books.map((b, i) => [b, mk.quotes[i]]).filter(([, q]) => q).map(([b, q]) => {
+  const pinText = !mk ? "" : D.books.map((b, i) => [b, mk.quotes[i]]).filter(([b, q]) => q && !hiddenBooks.has(b.key)).map(([b, q]) => {
     const use = q.line === view.line || offered.has(q.line) ? ""
       : (offered.add(q.line), ` <button type="button" data-line="${q.line}">Use ${q.line}</button>`);
-    return ` ${esc(b.name)} has ${q.line}: over ${fmtDec(q.over)}, ${q.oneWay ? "no under" : `under ${fmtDec(q.under)}`}.${use}`;
-  }).join("") + (mk.fair == null ? ""
-    : mk.est ? ` No sharp book has both sides at ${view.line}, so ${fmtPct(mk.fair)} ${view.side} is an estimate, ${esc(estNote(mk, view.side))}`
-      + `${mk.ev != null ? `, ${fmtEv(mk.ev)} EV at ${targetName()}'s ${fmtDec(mk.offer)}` : ""}.`
-    : ` ${mk.same > 1 ? `The best over and under at ${view.line} make it` : "That is"} ${fmtPct(mk.fair)} ${view.side} with the vig removed${mk.cap ? ` (${esc(capNote(mk))})` : ""}`
+    const more = q.ou.filter(o => o[0] !== q.line);   // its other over/unders, each a line to move to
+    const moves = more.filter(o => !offered.has(o[0])).map(o => (offered.add(o[0]), ` <button type="button" data-line="${o[0]}">Use ${o[0]}</button>`)).join("");
+    return ` ${esc(b.name)} has ${q.line}: over ${fmtDec(q.over)}, ${q.oneWay ? "no under" : `under ${fmtDec(q.under)}`}`
+      + (more.length ? `; over/under${more.length > 1 ? "s" : ""} ${esc(more.map(o => `${o[0]} ${fmtDec(o[1])}/${fmtDec(o[2])}`).join(", "))}` : "") + `.${use}${moves}`;
+  }).join("") + (mk.fair == null ? ` No fair chance: ${esc(shortNote(mk))}.`
+    : ` With the vig removed, ${mk.parts.length > 1 || mk.est ? `${esc(partsNote(mk, view.side))}, weighted, make it` : "that is"} ${fmtPct(mk.fair)} ${view.side}${mk.cap ? ` (${esc(capNote(mk))})` : ""}`
       + `${mk.ev != null ? `, ${fmtEv(mk.ev)} EV at ${targetName()}'s ${fmtDec(mk.offer)}` : ""}.`);
 
   const cell = (k, i) => (G[k][i] == null ? "&ndash;" : CLOCK.has(k) ? fmtClock(G[k][i]) : esc(G[k][i]));
@@ -1366,6 +1614,9 @@ const normName = s => {
 // A column at one of the league's set lines is that line's own stat (rush + rec TDs at 1.5 is 2+ TDs), as underdog.fixed_stat
 const fixedStat = (U, stat, line) => Object.entries(U.fixed || {}).find(([, [column, at]]) => column === stat && at === line)?.[0] || stat;
 
+// A game's [away, home] codes from its title: "PSU @ MICH", or soccer's home team first, "ROM vs RMA" (underdog.matchup)
+const matchupOf = title => title.includes(" @ ") ? title.split(" @ ") : title.includes(" vs ") ? title.split(" vs ").reverse() : null;
+
 function parseLines(payload, U) {
   const byId = list => new Map((list || []).map(x => [x.id, x]));
   const players = byId(payload.players), appearances = byId(payload.appearances), matches = byId(payload.games);
@@ -1375,19 +1626,20 @@ function parseLines(payload, U) {
     if (ln.status !== "active" || (ln.line_type || "balanced") !== "balanced") continue;
     const stat = ln.over_under?.appearance_stat || {}, app = appearances.get(stat.appearance_id) || {};
     const player = players.get(app.player_id), match = matches.get(app.match_id);
-    if (!player || !match || player.sport_id !== U.sport || !(match.title || "").includes(" @ ") || !(stat.stat in U.stats)) continue;
+    const teams = matchupOf(match?.title || "");
+    if (!player || !teams || player.sport_id !== U.sport || !(stat.stat in U.stats)) continue;
     const offers = {};
     for (const o of ln.options || []) {
       const side = { higher: "over", lower: "under" }[o.choice];
       if (side && o.status === "active") offers[side] = { odds: o.odds?.fantasy?.decimal ? +o.odds.fantasy.decimal : null, mult: +(o.payout_multiplier || 1) };
     }
     if (!offers.over && !offers.under) continue;
-    const [away, home] = match.title.split(" @ ").map(team), atHome = app.team_id === match.home_team_id;
+    const [away, home] = teams.map(team), atHome = app.team_id === match.home_team_id;
     lines.push({
       name: `${player.first_name || ""} ${player.last_name || ""}`.trim(), position: player.position_name,
       team: atHome ? home : away, opp: atHome ? away : home, home: atHome, away, homeTeam: home,
       stat: fixedStat(U, U.stats[stat.stat], +ln.stat_value), line: +ln.stat_value, over: offers.over || null, under: offers.under || null,
-      start: match.scheduled_at,
+      start: match.scheduled_at, title: match.full_team_names_title || match.title,
     });
   }
   return lines.filter(l => slateDate(l.start) >= D.date);
@@ -1405,6 +1657,19 @@ function lineStats(G, stat, line, opp, playoffs) {
     avg: vals.length ? Math.round(mean(vals.slice(0, 10)) * 100) / 100 : null,
     last: vals.slice(0, 10).reverse(),
   };
+}
+
+// A matchup's words that can tell it from others, as matchups.words: "AS Roma vs Real Madrid" -> roma, madrid
+const GENERIC = new Set(["ac", "afc", "and", "as", "at", "athletic", "atletico", "bc", "ca", "calcio", "cd", "central", "cf", "city", "club", "de", "del", "east", "eastern", "fc", "fk", "football", "la", "le", "new", "north", "northern", "of", "olympique", "rc", "real", "saint", "san", "sc", "sk", "south", "southern", "sporting", "ssc", "st", "stade", "state", "sv", "tech", "the", "ud", "united", "university", "us", "vfb", "vfl", "vs", "west", "western"]);
+const teamWords = text => new Set(fold(text || "").split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !GENERIC.has(w)));
+// The board's game a line is for: Underdog's own, or the listed game it is (kickoff within 20 minutes, a team's word shared)
+function gameFor(ln) {
+  const key = `${slateDate(ln.start)}|${ln.away}@${ln.homeTeam}`;
+  if (D.games.some(g => g.key === key)) return key;
+  const mine = teamWords(ln.title), when = Date.parse(ln.start);
+  const listed = D.games.filter(g => Math.abs(Date.parse(g.start) - when) <= 20 * 60000
+    && [...teamWords(g.away + " " + g.home + " " + (g.names || ""))].some(w => mine.has(w)));
+  return listed.length === 1 ? listed[0].key : key;
 }
 
 async function applyLines(lines, fetched, progress) {
@@ -1427,7 +1692,7 @@ async function applyLines(lines, fetched, progress) {
   for (const ln of lines) {
     const id = findId(ln.name, ln.team), key = keyOf(id, ln.name, ln.stat), before = current.get(key);
     const pos = PLAYERS.get(String(id))?.pos || positionOf(ln.position);
-    const game = `${slateDate(ln.start)}|${ln.away}@${ln.homeTeam}`;
+    const game = gameFor(ln);
     const row = {
       id, name: ln.name, team: ln.team, opp: ln.opp, home: ln.home, pos, start: ln.start, game,
       stat: ln.stat, line: ln.line, ud: true, over: ln.over, under: ln.under,
@@ -1456,12 +1721,13 @@ async function applyLines(lines, fetched, progress) {
     for (const offer of [r.over, r.under]) if (offer?.mult === 1 && offer.odds) standard.set(offer.odds, (standard.get(offer.odds) || 0) + 1);
     if (!D.games.some(g => g.key === r.game)) {
       const [date, matchup] = r.game.split("|"), [away, home] = matchup.split("@");
-      D.games.push({ key: r.game, date, away, home, start: r.start, state: "upcoming", lines: 0 });
+      D.games.push({ key: r.game, date, away, home, start: r.start, state: "upcoming", lines: 0, comp: null });
     }
   }
   for (const g of D.games) g.lines = counts.get(g.key) || 0;
   D.games.sort((a, b) => a.start.localeCompare(b.start));
   D.rows = rows;
+  dropStarted();
   D.standardOdds = [...standard].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   D.lines = { fetched, error: null };
   renderStatus(); renderTabs(); renderGames(); renderBoard();
@@ -1502,7 +1768,13 @@ function restoreLines() {
 }
 
 /* ---------- start ---------- */
-renderNav(); renderStatus(); renderTabs(); renderGames(); renderBoard(); route(); restoreLines();
+dropStarted();
+setInterval(() => { if (dropStarted()) { renderGames(); renderBoard(); } }, 30000);
+if (D.oddsOnly) {   // no games to count: Underdog's lines and the market's
+  $("#playoffs").style.display = "none";   // "Underdog lines only" hides the market's lines
+  q.placeholder = $("label[for=q]").textContent = "Filter players";
+}
+applyHidden(); renderSettings(); renderNav(); renderStatus(); renderTabs(); renderGames(); renderBoard(); route(); restoreLines();
 // Lines from an earlier slate (the build ran before Underdog posted today's, or reused a stale copy)
 // are of no use on today's board: fetch today's as the Refresh button would.
 {

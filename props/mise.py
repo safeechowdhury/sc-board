@@ -19,28 +19,52 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
+from . import matchups, net
+from .icons import icon
+
 KEY, NAME, SHORT = "mise", "Mise-o-jeu", "Mise"
-SHARP = False   # never part of the fair chance
+WEIGHT = 0     # never part of the fair chance
 TARGET = True   # a site to find EV on
+LEAGUE_ATTR = "MISE_LEAGUE"
+ICON = icon("mise.png")   # shown in place of its name in the EV toggle
 
 URL = "https://content.mojp-sgdigital-jel.com/content-service/api/v1/q"
 SITE = "https://miseojeuplus.espacejeux.com"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json",
            "Origin": SITE, "Referer": SITE + "/"}
 COMMON = {"lang": "en-CA", "channel": "I"}
-BATCH = 5   # games per markets request
+BATCH = 10   # games per markets request (each one about a megabyte)
 
 _RUNG = re.compile(r"^(\d+)\+$")                     # "3+"
 _PLAYER = re.compile(r"^(?P<player>.+?) (?:Total|Longest) ")   # "Tyler Warren Total Receptions 5.5"
 
 
 def _get(http: httpx.Client, endpoint: str, params: dict) -> dict:
-    r = http.get(f"{URL}/{endpoint}", params={**COMMON, **params})
-    r.raise_for_status()
-    body = r.json()
-    if body.get("errors") or body.get("data") is None:
-        raise ValueError(f"Mise-o-jeu {endpoint}: {body.get('errors') or 'empty answer'}")
-    return body["data"]
+    def ask():
+        with net.site("mise"):
+            r = http.get(f"{URL}/{endpoint}", params={**COMMON, **params})
+        r.raise_for_status()
+        body = r.json()
+        if body.get("errors") or body.get("data") is None:
+            raise ValueError(f"Mise-o-jeu {endpoint}: {body.get('errors') or 'empty answer'}")
+        return body["data"]
+    # the props and the lines page ask for the same games on the run's one clock
+    return net.once(("mise", endpoint, tuple(sorted(params.items()))), ask)
+
+
+def events(http: httpx.Client, ids: list[str]) -> list[dict]:
+    """The games with their markets, BATCH games a request. Within a run a game is asked for once,
+    so the lines page reads the props' answers."""
+    def ask(keys):
+        wanted = [key[2] for key in keys]
+        batches = [wanted[i:i + BATCH] for i in range(0, len(wanted), BATCH)]
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            pages = list(pool.map(lambda batch: _get(http, "events-by-ids", {
+                "eventIds": ",".join(batch), "includeChildMarkets": "true", "includePriceHistory": "false",
+                "includeCommentary": "false", "includeMedia": "false"}).get("events") or [], batches))
+        return {("mise", "event", str(event.get("id"))): event for page in pages for event in page}
+    answers = net.once_each([("mise", "event", str(i)) for i in ids], ask)
+    return [event for event in answers.values() if event]
 
 
 def _compact(market: dict) -> dict:
@@ -53,25 +77,31 @@ def _compact(market: dict) -> dict:
 
 def fetch(league, now: dt.datetime | None = None) -> dict:
     """The player markets of every game in the league starting within its slate."""
-    now = now or dt.datetime.now(dt.timezone.utc)
+    now = now or net.now()
     until = now + dt.timedelta(days=league.SLATE_DAYS + 1)
     stamp = lambda t: t.strftime("%Y-%m-%dT%H:%M:%SZ")
     with httpx.Client(timeout=60, headers=HEADERS, transport=httpx.HTTPTransport(retries=3)) as http:
-        events = _get(http, "event-list", {"startTimeFrom": stamp(now), "startTimeTo": stamp(until), "maxEvents": 500,
+        listed = _get(http, "event-list", {"startTimeFrom": stamp(now), "startTimeTo": stamp(until), "maxEvents": 500,
                                            "maxMarkets": 0, "drilldownTagIds": league.MISE_LEAGUE}).get("events") or []
-        ids = [str(e["id"]) for e in events if not e.get("started")]
-        batches = [ids[i:i + BATCH] for i in range(0, len(ids), BATCH)]
-        with ThreadPoolExecutor(max_workers=3) as pool:
-            pages = pool.map(lambda batch: _get(http, "events-by-ids", {
-                "eventIds": ",".join(batch), "includeChildMarkets": "true", "includePriceHistory": "false",
-                "includeCommentary": "false", "includeMedia": "false"}).get("events") or [], batches)
-            return {"markets": [_compact(m) for page in pages for event in page if not event.get("started")
-                                for m in event.get("markets") or []
-                                if "PLAYER" in (m.get("groupCode") or "") or m.get("groupCode") in league.MISE_STATS]}
+        ids = [str(e["id"]) for e in listed if not e.get("started")
+               and matchups.on_board(league, e.get("startTime"), e.get("name") or "")]
+        # each market says which game it's for ([start, "Everton vs Chelsea"])
+        return {"markets": [{**_compact(m), **({"game": game} if (game := matchups.game_of(event.get("startTime"), event.get("name"))) else {})}
+                            for event in events(http, ids) if not event.get("started")
+                            for m in event.get("markets") or []
+                            if "PLAYER" in (m.get("groupCode") or "") or m.get("groupCode") in league.MISE_STATS
+                            or _by_name(m.get("name") or "", league)]}
 
 
 _PERIOD = re.compile(r"1ST_(?:PERIOD|HALF|QUARTER)|FIRST_PERIOD")   # part of a game: never a board stat
-_FIELD = re.compile(r"^Player (?P<n>\d+)\+ ", re.I)                # "Player 3+ Goals (Inc OT)": a runner per player
+# "Player 3+ Goals (Inc OT)", soccer's "Player to Score 2+": a runner per player
+_FIELD = re.compile(r"^Player (?:to Score )?(?P<n>\d+)\+", re.I)
+
+
+def _by_name(name: str, league) -> str | None:
+    """The stat of a market Mise-o-jeu codes unreliably, by the end of its name: goalie saves come as
+    "Linus Ullmark Total Saves" under a game-total code, or none at all."""
+    return next((stat for suffix, stat in getattr(league, "MISE_NAMES", {}).items() if name.endswith(" " + suffix)), None)
 
 
 def _odds(outcome: dict) -> float | None:
@@ -82,10 +112,13 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
     """The league's player props, plus a count of the player markets we don't map (by group code).
     A one-way price (a ladder's rung) has "under": None."""
     props, skipped = [], Counter()
+    prev, game = 0, None
     for market in payload.get("markets", []):
+        matchups.tag(props, prev, game)   # the last market's props are for its game
+        prev, game = len(props), market.get("game")
         if market.get("status") != "ACTIVE" or _PERIOD.search(market["code"]):
             continue
-        stat = league.MISE_STATS.get(market["code"])
+        stat = league.MISE_STATS.get(market["code"]) or _by_name(market["name"], league)
         if not stat:
             skipped[market["code"]] += 1
             continue
@@ -109,4 +142,5 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
             continue
         props += [{"player": player, "stat": stat, "line": int(rung[1]) - 0.5, "over": _odds(o), "under": None}
                   for o in market["outcomes"] for rung in [_RUNG.match(o["name"])] if rung and _odds(o)]
+    matchups.tag(props, prev, game)
     return props, skipped

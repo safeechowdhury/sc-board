@@ -51,6 +51,19 @@ class ParseTest(unittest.TestCase):
         self.assertEqual([(p["player"], p["stat"], p["line"], p["over"]) for p in props],
                          [("Jose Ramirez", "hits", 1.5, 3.8), ("Jose Ramirez", "hits", 0.5, 1.4)])
 
+    def test_soccers_markets_are_the_whole_of_regulation_time(self):
+        from props.leagues import soccer
+        event = {"displayGroups": [{"markets": [
+            {"description": "Shots On Target - Aaron Hickey (BRE)", "key": "GAME-PROP-12", "status": "O",
+             "period": {"description": "Regulation Time"},
+             "outcomes": [{"description": "1+ Shots on Target", "type": "X", "status": "O", "price": {"decimal": "3.500"}}]},
+            {"description": "Shots On Target - Aaron Hickey (BRE)", "key": "GAME-PROP-12", "status": "O",
+             "period": {"description": "First Half"},
+             "outcomes": [{"description": "1+ Shots on Target", "type": "X", "status": "O", "price": {"decimal": "8.00"}}]},
+        ]}]}
+        props, _ = bovada.parse({"markets": bovada._compact(event)}, soccer)
+        self.assertEqual(props, [{"player": "Aaron Hickey", "stat": "shots_on_target", "line": 0.5, "over": 3.5, "under": None}])
+
     def test_unmapped_markets_are_counted_by_name(self):
         props, skipped = bovada.parse({"markets": [
             market("Longest Reception - Chris Olave (NOR)", [("Over", "O", "24.5", "1.87"), ("Under", "U", "24.5", "1.87")]),
@@ -62,16 +75,16 @@ class ParseTest(unittest.TestCase):
 
 
 class FetchTest(unittest.TestCase):
-    def test_lists_the_leagues_games_then_reads_each_ones_player_markets(self):
+    def test_reads_every_games_markets_from_the_league_listing(self):
         start = lambda hours: int((dt.datetime(2026, 10, 5, 12, tzinfo=dt.timezone.utc) + dt.timedelta(hours=hours)).timestamp() * 1000)
-        game = {"events": [{"displayGroups": [{"markets": [
+        groups = [{"markets": [
             {"description": "Total Bases - Chase DeLauter (CLE)", "key": "2W-OU", "status": "O", "period": {"description": "Game"},
              "outcomes": [{"description": "Over", "type": "O", "status": "O", "price": {"handicap": "1.5", "decimal": "2.550"}}]},
             {"description": "Total Bases - Chase DeLauter (CLE)", "key": "2W-OU", "status": "O", "period": {"description": "1st Inning"},
              "outcomes": []},
             {"description": "Moneyline", "key": "2W-12", "status": "O", "period": {"description": "Game"},
              "outcomes": [{"description": "Cleveland Guardians", "type": "H", "status": "O", "price": {"decimal": "1.6"}}]},
-        ]}]}]}
+        ]}]
         seen = []
 
         class Http:
@@ -79,24 +92,18 @@ class FetchTest(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self, *a): pass
             def get(self, url, params):
-                seen.append(url.split("/description/", 1)[1])
-                if url.endswith("/gone"):
-                    response = httpx.Response(404, request=httpx.Request("GET", url))
-                    return type("R", (), {"status_code": 404, "raise_for_status": lambda self: response.raise_for_status()})()
-                data = ([{"events": [{"link": "/baseball/mlb/gone", "startTime": start(4), "live": False},
-                                     {"link": "/baseball/mlb/today", "startTime": start(5), "live": False},
-                                     {"link": "/baseball/mlb/started", "startTime": start(-1), "live": True},
-                                     {"link": "/baseball/mlb/next-week", "startTime": start(24 * 9), "live": False}]}]
-                        if url.endswith("baseball/mlb") else [game])
+                seen.append((url.split("/description/", 1)[1], params))
+                data = [{"events": [{"startTime": start(5), "live": False, "displayGroups": groups},
+                                    {"startTime": start(-1), "live": True, "displayGroups": groups},
+                                    {"startTime": start(24 * 9), "live": False, "displayGroups": groups}]}]
                 return type("R", (), {"status_code": 200, "raise_for_status": lambda self: None, "json": lambda self: data})()
 
         with unittest.mock.patch.object(bovada.httpx, "Client", Http):
             payload = bovada.fetch(mlb, now=dt.datetime(2026, 10, 5, 12, tzinfo=dt.timezone.utc))
-        # a game whose page is gone is skipped; not the game under way, not one past the slate
-        self.assertEqual(seen, ["baseball/mlb", "baseball/mlb/gone", "baseball/mlb/today"])
+        # one request, with no market filter so it carries every market; not the game under way, not one past the slate
+        self.assertEqual(seen, [("baseball/mlb", {"lang": "en", "preMatchOnly": "true", "eventsLimit": 100})])
         self.assertEqual(payload, {"markets": [{"name": "Total Bases - Chase DeLauter (CLE)", "key": "2W-OU",
                                                 "outcomes": [{"name": "Over", "type": "O", "line": "1.5", "odds": "2.550"}]}]})
-
 
 if __name__ == "__main__":
     unittest.main()

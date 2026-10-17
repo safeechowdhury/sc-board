@@ -45,6 +45,14 @@ class ParseTest(unittest.TestCase):
             market("Josh Allen - 1st Qtr Passing Yds", ("Josh Allen Over", 1.9), ("Josh Allen Under", 1.9), handicap=60.5)]}, nfl)
         self.assertEqual((props, dict(skipped)), ([], {"1st Qtr Passing Yds": 1}))
 
+    def test_a_title_that_shortens_the_name_reads_the_stat_after_the_dash(self):
+        from props.leagues import nba
+        props, skipped = fanduel.parse({"markets": [
+            market("S Gilgeous-Alexander - Pts + Reb + Ast", ("Shai Gilgeous-Alexander Over", 1.893),
+                   ("Shai Gilgeous-Alexander Under", 1.847), handicap=40.5)]}, nba)
+        self.assertEqual(([(p["player"], p["stat"], p["line"]) for p in props], dict(skipped)),
+                         ([("Shai Gilgeous-Alexander", "pts_rebs_asts", 40.5)], {}))
+
 
 class OneWayTest(unittest.TestCase):
     def ladder(self, name, runners):
@@ -68,6 +76,8 @@ class OneWayTest(unittest.TestCase):
             self.ladder("Zay Flowers - Alt Receptions", [("Zay Flowers 3+ Receptions", 1.4), ("Zay Flowers 4+ Receptions", 1.9)]),
             self.ladder("Any Time Touchdown Scorer", [("Derrick Henry", 1.8), ("Zay Flowers", 2.9)]),
             self.ladder("Anytime 1st Half TD Scorer", [("Derrick Henry", 2.6), ("Zay Flowers", 4.0)]),
+            self.ladder("Josh Allen - 1st Half Alt Passing Yds", [("Josh Allen 150+ Yards", 1.5)]),
+            self.ladder("Josh Allen - 1st Qtr Alt Passing Yds", [("Josh Allen 50+ Yards", 1.6)]),
         ]}, nfl)
         self.assertEqual([(p["player"], p["stat"], p["line"], p["over"]) for p in football], [
             ("Zay Flowers", "receptions", 2.5, 1.4), ("Zay Flowers", "receptions", 3.5, 1.9),
@@ -82,6 +92,34 @@ class OneWayTest(unittest.TestCase):
             ("Quinn Hughes", "points", 1.5), ("Kirill Kaprizov", "points", 1.5),
             ("Kirill Kaprizov", "goals", 0.5), ("Matt Boldy", "goals", 0.5),
         ])
+
+    def test_soccers_ladders(self):
+        from props.leagues import soccer
+        props, _ = fanduel.parse({"markets": [
+            self.ladder("Anytime Goalscorer", [("Kylian Mbappe", 1.667)]),
+            self.ladder("To Score 2 or More Goals", [("Kylian Mbappe", 4.5)]),
+            self.ladder("Anytime Assist", [("Jude Bellingham", 3.1)]),
+            self.ladder("To Score Or Assist", [("Jude Bellingham", 2.0)]),
+            self.ladder("Player To Have 2 Or More Shots On Target", [("Kylian Mbappe", 2.2)]),
+            self.ladder("Player To Have 2 Or More Shots On Target In 1st Half", [("Kylian Mbappe", 6.0)]),
+            self.ladder("Player To Have 3 Or More Shots", [("Arda Guler", 2.4)]),
+        ]}, soccer)
+        self.assertEqual([(p["player"], p["stat"], p["line"]) for p in props], [
+            ("Kylian Mbappe", "goals", 0.5), ("Kylian Mbappe", "goals", 1.5), ("Jude Bellingham", "assists", 0.5),
+            ("Jude Bellingham", "goals_assists", 0.5), ("Kylian Mbappe", "shots_on_target", 1.5), ("Arda Guler", "shots", 2.5),
+        ])
+
+    def test_soccers_games_come_from_the_sport_page_by_competition(self):
+        from props.leagues import soccer
+        from props import books
+        epl = books.competitions(soccer)[0]
+        page = {"attachments": {"events": {
+            "1": {"eventId": 1, "name": "Brentford v Liverpool", "competitionId": 10932509},
+            "2": {"eventId": 2, "name": "Roma v Real Madrid", "competitionId": 228},
+            "3": {"eventId": 3, "name": "English Premier League", "competitionId": 10932509}}}}
+        with mock.patch.object(fanduel, "_get", return_value=page) as get:
+            self.assertEqual([e["eventId"] for e in fanduel.league_events(None, epl)], [1])
+        self.assertEqual(get.call_args.args[2]["page"], "SPORT")
 
     def test_first_goal_scorer_and_alt_saves_named_without_a_dash(self):
         props, _ = fanduel.parse({"markets": [
@@ -102,20 +140,25 @@ class FetchTest(unittest.TestCase):
         events = {"1": {"eventId": 1, "name": "A @ B", "openDate": "2026-10-03T23:00:00.000Z"},
                   "2": {"eventId": 2, "name": "C @ D", "openDate": "2026-10-09T23:00:00.000Z"},     # past the slate
                   "3": {"eventId": 3, "name": "MLB Futures", "openDate": "2026-10-03T23:00:00.000Z"},
-                  "4": {"eventId": 4, "name": "E @ F", "openDate": "2026-10-03T14:00:00.000Z"}}     # under way
+                  "4": {"eventId": 4, "name": "E @ F", "openDate": "2026-10-03T14:00:00.000Z"},     # under way
+                  "5": {"eventId": 5, "name": "G @ H", "openDate": "2026-10-04T00:00:00.000Z"}}     # no batter props yet
+        tabs = {1: ["Popular", "Pitcher Props", "Batter Props"], 5: ["Popular", "Pitcher Props"]}
         calls = []
 
         def get(http, path, params):
             calls.append((path, params.get("eventId"), params.get("tab")))
             if path == "content-managed-page":
                 return {"attachments": {"events": events}}
-            return {"attachments": {"markets": {"m": {"marketName": "X - Strikeouts", "runners": [
-                {"runnerName": "X Over", "handicap": 5.5, "runnerStatus": "ACTIVE",
-                 "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.9}}}}] * 2}}}}
+            return {"layout": {"tabs": {str(i): {"id": i, "title": title} for i, title in enumerate(tabs[params["eventId"]])}},
+                    "attachments": {"markets": {"m": {"marketName": "X - Strikeouts", "runners": [
+                        {"runnerName": "X Over", "handicap": 5.5, "runnerStatus": "ACTIVE",
+                         "winRunnerOdds": {"trueOdds": {"decimalOdds": {"decimalOdds": 1.9}}}}] * 2}}}}
 
         with mock.patch.object(fanduel, "_get", get):
             raw = fanduel.fetch(mlb, now=now)
-        self.assertEqual(sorted(calls[1:]), [("event-page", 1, tab) for tab in sorted(mlb.FANDUEL_TABS)])
+        # every game's first tab, then the others only where the game lists them
+        self.assertEqual(sorted(calls[1:]), [("event-page", 1, "batter-props"), ("event-page", 1, "pitcher-props"),
+                                             ("event-page", 5, "pitcher-props")])
         self.assertEqual(raw["markets"][0]["runners"][0], {"name": "X Over", "handicap": 5.5, "status": "ACTIVE", "odds": 1.9})
 
 

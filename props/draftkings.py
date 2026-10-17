@@ -23,9 +23,14 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
+from . import matchups, net
+from .icons import icon
+
 KEY, NAME, SHORT = "draftkings", "DraftKings", "DK"
-SHARP = True   # its prices count toward the fair chance
+WEIGHT = 1.4   # its share of the fair chance (books.py)
+ICON = icon("draftkings.png")   # shown in place of its name in the column heading
 TARGET = False
+LEAGUE_ATTR = "DRAFTKINGS_LEAGUE"
 
 SITE = os.environ.get("DRAFTKINGS_SITE", "dkusny")   # DraftKings' state site code
 HOME = "https://sportsbook.draftkings.com/"
@@ -48,33 +53,56 @@ def _player(selection: dict) -> str | None:
 
 def _compact(data: dict) -> dict:
     """The parts of a subcategory parse() reads: games not started yet, their markets, each side's price."""
-    upcoming = {e["id"] for e in data.get("events", []) if e.get("status") == "NOT_STARTED"}
-    markets = {m["id"]: m.get("name", "") for m in data.get("markets", []) if m.get("eventId") in upcoming}
+    upcoming = {e["id"]: matchups.game_of(re.sub(r"\.\d+", "", e.get("startEventDate") or ""), e.get("name"))
+                for e in data.get("events", []) if e.get("status") == "NOT_STARTED"}
+    markets = {m["id"]: (m.get("name", ""), upcoming[m["eventId"]]) for m in data.get("markets", []) if m.get("eventId") in upcoming}
     return {"selections": [
-        {"market": s["marketId"], "name": markets[s["marketId"]], "player": _player(s),
+        {"market": s["marketId"], "name": markets[s["marketId"]][0], "player": _player(s),
          "side": (s.get("outcomeType") or "").lower(), "line": s.get("points"),
-         "odds": s.get("trueOdds"), "main": bool(s.get("main")), "milestone": s.get("milestoneValue")}
+         "odds": s.get("trueOdds"), "main": bool(s.get("main")), "milestone": s.get("milestoneValue"),
+         **({"game": markets[s["marketId"]][1]} if markets[s["marketId"]][1] else {})}   # [start, "Everton vs Chelsea"]
         for s in data.get("selections", []) if s.get("marketId") in markets
     ]}
 
 
+def _get(http: httpx.Client, league, path: str) -> dict:
+    """A page of the league's offer, asked once a run: the props and the lines page both start
+    from its category list."""
+    def ask():
+        with net.site("draftkings"):
+            r = http.get(f"{URL}/{league.DRAFTKINGS_LEAGUE}{path}")
+        r.raise_for_status()
+        return r.json()
+    return net.once(("draftkings", league.DRAFTKINGS_LEAGUE, path), ask)
+
+
+def _client():
+    """A client with the cookies the odds host asks for, set by a visit to the home page: one a run."""
+    def make():
+        http = httpx.Client(timeout=60, headers=HEADERS, follow_redirects=True, transport=httpx.HTTPTransport(retries=3))
+        with net.site("draftkings"):
+            http.get(HOME).raise_for_status()
+        return http
+    return net.shared("draftkings-client", make)
+
+
 def fetch(league) -> dict:
     """Every two-way subcategory in the league's prop categories, and the ladders it maps, by name."""
-    with httpx.Client(timeout=60, headers=HEADERS, follow_redirects=True,
-                      transport=httpx.HTTPTransport(retries=3)) as http:
-        http.get(HOME).raise_for_status()   # sets the cookies the odds host asks for
-
-        def get(path: str) -> dict:
-            r = http.get(f"{URL}/{league.DRAFTKINGS_LEAGUE}{path}")
-            r.raise_for_status()
-            return r.json()
+    with _client() as http:
+        get = lambda path: _get(http, league, path)
 
         fields = getattr(league, "DRAFTKINGS_FIELDS", {})
-        categories = {str(c["id"]): c.get("name", "").strip() for c in get("").get("categories", [])}
+        # the league's page lists every category's subcategories, so no category's page is asked for
+        offer = get("")
+        # an odds board's competition with none of the board's games on it isn't read further
+        if getattr(league, "BOARD_GAMES", None) is not None and not any(matchups.on_board(league, re.sub(r"\.\d+", "", e.get("startEventDate") or ""), e.get("name") or "")
+                   for e in offer.get("events", []) if e.get("status") == "NOT_STARTED"):
+            return {"subcategories": []}
+        categories = {str(c["id"]): c.get("name", "").strip() for c in offer.get("categories", [])}
         wanted = [cid for cid, name in categories.items() if name in league.DRAFTKINGS_CATEGORIES]
         subcategories = []
         for cid in wanted:
-            subcategories += [(cid, s["id"], s.get("name", "").strip()) for s in get(f"/categories/{cid}").get("subcategories", [])
+            subcategories += [(cid, s["id"], s.get("name", "").strip()) for s in offer.get("subcategories", [])
                               if str(s.get("categoryId")) == cid and (_TWO_WAY.search(s.get("name", "").strip())
                                                                       or s.get("name", "").strip() in league.DRAFTKINGS_LADDERS
                                                                       or _field(s.get("name", "").strip()) in fields)]
@@ -87,12 +115,14 @@ def fetch(league) -> dict:
                                       for (_, _, name), page in zip(subcategories, pages)]}
 
 
-def _prop(player: str, stat: str, line: float, over: float, under: float | None, league) -> dict:
+def _prop(player: str, stat: str, line: float, over: float, under: float | None, league, game=None) -> dict:
     prop = {"player": _TEAM_TAG.sub("", player), "stat": stat, "line": line,
             "over": round(float(over), 3), "under": None if under is None else round(float(under), 3)}
     tag = _TEAM_TAG.search(player)
     if tag:
         prop["team"] = league.TEAM_ALIASES.get(tag.group(1), tag.group(1))
+    if game:
+        prop["game"] = game
     return prop
 
 
@@ -111,12 +141,12 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
                 elif stat and s["player"] and s["odds"]:   # None: a market read past quietly ("First TD Scorer")
                     count = _COUNT.search(s["name"])
                     props.append(_prop(s["player"], stat, (int(count.group()) if count else 1) - 0.5,
-                                       s["odds"], None, league))
+                                       s["odds"], None, league, s.get("game")))
             continue
         ladder = league.DRAFTKINGS_LADDERS.get(sub["name"])
         if ladder:
             props += [_prop(s["player"] or re.sub(rf"\s+{re.escape(sub['name'])}$", "", s["name"]), ladder,
-                            s["milestone"] - 0.5, s["odds"], None, league)
+                            s["milestone"] - 0.5, s["odds"], None, league, s.get("game"))
                       for s in sub["selections"] if s.get("milestone") is not None and s["odds"]]
             continue
         stat = league.DRAFTKINGS_STATS.get(sub["name"])
@@ -132,5 +162,5 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
             if not over or not under or not (over["main"] or under["main"]):
                 continue   # an alternate line; the main one is the book's real opinion
             player = over["player"] or re.sub(rf"\s+{re.escape(sub['name'])}$", "", over["name"])
-            props.append(_prop(player, stat, float(line), over["odds"], under["odds"], league))
+            props.append(_prop(player, stat, float(line), over["odds"], under["odds"], league, over.get("game")))
     return props, skipped

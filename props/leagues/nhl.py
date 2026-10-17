@@ -283,6 +283,12 @@ NOVIG_STATS = {   # Novig market types
     "POWER_PLAY_POINTS": "ppp", "SAVES": "saves", "FIRST_GOAL_SCORER": "first_goals",
 }
 
+KALSHI_GAME, KALSHI_TOTAL = "KXNHLGAME", "KXNHLTOTAL"
+KALSHI_STATS = {   # Kalshi series, each market a rung ("Tom Wilson: 2+ points"); no shots series
+    "KXNHLGOAL": "goals", "KXNHLPTS": "points", "KXNHLAST": "assists", "KXNHLSAVE": "saves",
+    "KXNHLFIRSTGOAL": "first_goals",
+}
+
 BOVADA_PATH = "hockey/nhl"
 # Bovada market names, before " - Player (TEAM)" or with the count as N (bovada.parse)
 BOVADA_STATS = {
@@ -308,6 +314,30 @@ MISE_STATS = {
     "PLAYER_TOTAL_ASSISTS_UNDEFINED": "assists",
     "PLAYER_TOTAL_GOALS": "goals",   # "Player 3+ Goals", a runner per player
     "GOALSCORER_FIRST": "first_goals",   # "First Goalscorer", a runner per player
+}
+# markets Mise-o-jeu codes unreliably, by how their name ends ("Linus Ullmark Total Saves")
+MISE_NAMES = {"Total Saves": "saves"}
+
+BETANO_PATH = "/sport/hockey/north-america/nhl/10118r/"   # its league page on betano.ca
+
+STAKE_SPORT = 'ice-hockey'     # its sport slug on stake.com
+PICK6_SPORT = 'NHL'     # its sport code on pick6.draftkings.com
+BETANO_STATS = {
+    "Shots on Goal": "shots", "Points O/U": "points", "Assists O/U": "assists", "Points": "points",
+    "Assists": "assists", "Blocked Shots": "blocked_shots", "Powerplay Points": "ppp",
+    "Goal scorer": "goals", "Goal scorer 2+": "goals", "To Score 2+ Goals": "goals",
+    "2+ Points": "points", "2+ Assists": "assists",
+}
+BETANO_FIRST = {"Goal scorer": "first_goals"}
+
+STAKE_STATS = {
+    "Shots": "shots", "Goals": "goals", "Assists": "assists", "Points": "points",
+    "Powerplay Points": "ppp", "Saves": "saves", "Blocked Shots": "blocked_shots",
+    "Hits": "hits", "Plus Minus": "plus_minus", "Goals Against": "goals_against",
+}
+PICK6_STATS = {
+    "Shots on Goal": "shots", "Goals": "goals", "Assists": "assists", "Points": "points",
+    "Saves": "saves", "Blocked Shots": "blocked_shots",
 }
 
 PROPS = {
@@ -425,3 +455,5 @@ def backfill(store, seasons: list[int]):
         store.write_season(season, df)
         yield (f"{season}: {df['game_id'].n_unique()} games, {df.height} player-games "
                f"({df['date'].min()} to {df['date'].max()})")
+
+ANYTIME_STATS = {"goals"}   # an anytime goal: a book's 2+ goals rung is never its price (books.prices)

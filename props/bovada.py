@@ -2,8 +2,9 @@
 
 Bovada's site reads its odds from an open coupon service (`www.bovada.lv/services`)
 that answers a plain request, no key or cookies. One request lists a league's
-games, then one per game lists its markets in display groups ("Receiving Yards").
-The games go one at a time, a moment apart: Bovada refuses even three at once.
+games with every market of each, in display groups ("Receiving Yards"): asked with
+no market filter, the listing carries what each game's own page would. Requests
+go one at a time, a second apart (net.LIMITS): Bovada refuses even three at once.
 
 Its prices are soft and it doesn't take Canadian players, so it neither counts
 toward the board's fair chance nor is a site to find EV on: the board just shows
@@ -22,13 +23,20 @@ from collections import Counter
 
 import httpx
 
+from . import matchups, net
+from .icons import icon
+
 KEY, NAME, SHORT = "bovada", "Bovada", "Bovada"
-SHARP = False    # soft prices: never part of the fair chance
+WEIGHT = 0      # soft prices: never part of the fair chance
+ICON = icon("bovada.png")   # shown in place of its name in the column heading
 TARGET = False   # and not a site to find EV on
+# the board reads it only for the games it lists, once it knows them (site.build passes `until`,
+# the last one's start); the listing is asked for once a run either way
+BOARD_GAMES_ONLY = True
+LEAGUE_ATTR = "BOVADA_PATH"
 
 URL = "https://www.bovada.lv/services/sports/event/coupon/events/A/description"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-PAUSE = 1   # seconds between games
 
 _PLAYER = re.compile(r"^(?P<name>.+?) - (?P<player>[^()]+?) \([A-Z]{2,4}\)$")   # "Total Receptions - Alvin Kamara (NOR)"
 _RUNNER = re.compile(r"^(?P<player>[^()]+?) \([A-Z]{2,4}\)$")                   # "Nikita Kucherov (TB)"
@@ -37,13 +45,21 @@ _PART = re.compile(r"Quarter|Half|Period|Inning|Drive", re.I)   # part of a game
 
 
 def _get(http: httpx.Client, path: str, params: dict) -> list:
-    for wait in (5, 15, 30, None):   # Bovada answers a burst with 429: back off and ask again
-        r = http.get(f"{URL}/{path}", params={"lang": "en", **params})
-        if r.status_code != 429 or wait is None:
-            break
-        time.sleep(wait)
-    r.raise_for_status()
-    return r.json()
+    """One page, asked once a run (the props and the lines pages read the same games) and not at
+    all while the copy kept from an earlier run is still fresh, one request at a time a second
+    apart (net.LIMITS)."""
+    def ask():
+        with net.site("bovada"):
+            for wait in (5, 15, 30, None):   # Bovada answers a burst with 429: back off and ask again
+                r = http.get(f"{URL}/{path}", params={"lang": "en", **params})
+                if r.status_code != 429 or wait is None:
+                    break
+                time.sleep(wait)
+        r.raise_for_status()
+        return r.json(), getattr(r, "headers", {})
+    key = ("bovada", path, tuple(sorted(params.items())))
+    # its CDN keeps a page 10 minutes: one fetched within that is the same page
+    return net.once(key, lambda: net.fresh(key, ask))
 
 
 def _compact(event: dict) -> list[dict]:
@@ -51,7 +67,8 @@ def _compact(event: dict) -> list[dict]:
     markets = []
     for group in event.get("displayGroups", []):
         for m in group.get("markets", []):
-            if m.get("status") != "O" or (m.get("period") or {}).get("description") != "Game":
+            # the whole game: soccer's is "Regulation Time"
+            if m.get("status") != "O" or (m.get("period") or {}).get("description") not in ("Game", "Regulation Time"):
                 continue
             outcomes = [{"name": o["description"], "type": o.get("type"), "line": o["price"].get("handicap"),
                          "odds": o["price"].get("decimal")}
@@ -61,26 +78,26 @@ def _compact(event: dict) -> list[dict]:
     return markets
 
 
-def fetch(league, now: dt.datetime | None = None) -> dict:
-    """The player markets of every game in the league starting within its slate."""
-    now = now or dt.datetime.now(dt.timezone.utc)
-    until = (now + dt.timedelta(days=league.SLATE_DAYS + 1)).timestamp() * 1000
+def listing(http: httpx.Client, league) -> list[dict]:
+    """The league's games not yet started, each with every market of its own page: the listing
+    asked with no market filter carries them all, so no game's page is asked for. The lines page
+    reads the same answer (its Game Lines)."""
+    found = _get(http, league.BOVADA_PATH, {"preMatchOnly": "true", "eventsLimit": 100})
+    return [e for block in found for e in block.get("events", []) if not e.get("live")]
+
+
+def fetch(league, now: dt.datetime | None = None, until: dt.datetime | None = None) -> dict:
+    """The player markets of every game in the league starting from now until `until` (by default,
+    the end of its slate)."""
+    now = now or net.now()
+    until = (until or now + dt.timedelta(days=league.SLATE_DAYS + 1)).timestamp() * 1000
     with httpx.Client(timeout=60, headers=HEADERS, transport=httpx.HTTPTransport(retries=3)) as http:
-        listing = _get(http, league.BOVADA_PATH, {"marketFilterId": "def", "preMatchOnly": "true", "eventsLimit": 100})
-        links = [e["link"] for block in listing for e in block.get("events", [])
-                 if not e.get("live") and now.timestamp() * 1000 < e["startTime"] < until]
-        markets = []
-        for i, link in enumerate(links):
-            if i:
-                time.sleep(PAUSE)
-            try:
-                page = _get(http, link.lstrip("/"), {})
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 404:   # listed, but its page is gone (moved or pulled): skip the game
-                    continue
-                raise
-            markets += [m for block in page for event in block.get("events", []) for m in _compact(event)]
-        return {"markets": markets}
+        # each market says which game it's for ([start, "Chelsea @ Everton"])
+        game = lambda e: matchups.game_of(dt.datetime.fromtimestamp(e["startTime"] / 1000, dt.timezone.utc).isoformat(), e.get("description"))
+        return {"markets": [{**m, **({"game": game(e)} if game(e) else {})} for e in listing(http, league)
+                            if now.timestamp() * 1000 < e["startTime"] <= until
+                            and matchups.on_board(league, e["startTime"], e.get("description") or "")
+                            for m in _compact(e)]}
 
 
 def _odds(outcome: dict) -> float | None:
@@ -91,7 +108,10 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
     """The league's player props, plus a count of the player markets we don't map (by name, its
     count written as N). A one-way price (a ladder's rung) has "under": None."""
     props, skipped = [], Counter()
+    prev, game = 0, None
     for market in payload.get("markets", []):
+        matchups.tag(props, prev, game)   # the last market's props are for its game
+        prev, game = len(props), market.get("game")
         one = _PLAYER.match(market["name"])
         if one:   # one player's over/under or ladder
             name, player = one["name"], one["player"]
@@ -120,7 +140,7 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
         stat = league.BOVADA_STATS.get(name)
         if not stat:
             if not _PART.search(name):
-                skipped[name] += 1
+                skipped[name.split(" - ")[0]] += 1   # "First Touchdown Scorer - Texas (#N)" counts as its market
             continue
         count = _COUNT.search(market["name"])
         line = (int(count.group()) if count else 1) - 0.5
@@ -128,4 +148,5 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
             runner = _RUNNER.match(o["name"])
             if runner and _odds(o):
                 props.append({"player": runner["player"], "stat": stat, "line": line, "over": _odds(o), "under": None})
+    matchups.tag(props, prev, game)
     return props, skipped

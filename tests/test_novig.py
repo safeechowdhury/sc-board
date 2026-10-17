@@ -38,6 +38,14 @@ class ParseTest(unittest.TestCase):
         self.assertEqual((props, dict(skipped)), ([], {"FIRST_TOUCHDOWN_SCORER": 1}))
 
 
+class CardsTest(unittest.TestCase):
+    def test_games_are_read_from_sections_or_their_subsections(self):
+        card = lambda i: {"type": "game_event_card", "eventId": i}
+        page = {"sections": [{"content": {"type": "components", "components": [card(1), {"type": "banner"}]}},
+                             {"content": {"subSections": [{"components": [card(2)]}, {"components": [card(3)]}]}}]}
+        self.assertEqual([c["eventId"] for c in novig._cards(page)], [1, 2, 3])
+
+
 class FetchTest(unittest.TestCase):
     def test_lists_the_leagues_games_then_reads_the_props_of_those_on_the_slate(self):
         now = dt.datetime(2026, 10, 5, 12, tzinfo=dt.timezone.utc)

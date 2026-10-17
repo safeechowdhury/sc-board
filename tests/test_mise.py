@@ -24,6 +24,18 @@ class ParseTest(unittest.TestCase):
         ])
         self.assertFalse(skipped)
 
+    def test_goalie_saves_are_read_by_name_whatever_their_code(self):
+        props, skipped = mise.parse({"markets": [
+            market("Linus Ullmark Total Saves", "ROLLING_TOTAL_GOALS_OVER/UNDER_INC_OT_AND_PENS_WITH_ALT",
+                   [("Over", 1.95), ("Under", 1.74)], line=25.5),
+            market("Nico Daws Total Saves", "", [("Over", 1.74), ("Under", 1.95)], line=22.5),
+        ]}, nhl)
+        self.assertEqual(props, [
+            {"player": "Linus Ullmark", "stat": "saves", "line": 25.5, "over": 1.95, "under": 1.74},
+            {"player": "Nico Daws", "stat": "saves", "line": 22.5, "over": 1.74, "under": 1.95},
+        ])
+        self.assertFalse(skipped)
+
     def test_a_ladders_rungs_are_overs_half_a_point_below(self):
         props, _ = mise.parse({"markets": [
             market("Xander Bogaerts Total Bases (sin. = 1, dou. = 2, tri. = 3, hr = 4)", "PLAYER_UNDEFINED_TOTAL_BASES",
@@ -48,6 +60,14 @@ class ParseTest(unittest.TestCase):
         ]}, nhl)
         self.assertEqual([(p["player"], p["stat"], p["line"], p["over"]) for p in first],
                          [("Kyle Connor", "first_goals", 0.5, 11.0), ("Dylan DeMelo", "first_goals", 0.5, 91.0)])
+
+    def test_soccers_scorer_markets(self):
+        from props.leagues import soccer
+        props, _ = mise.parse({"markets": [
+            market("Player to score", "GOALSCORER_WITH_NO_GOAL_ANYTIME", [("Igor Thiago", 2.4)]),
+            market("Player to Score 2+", "GOALSCORER_TWO_OR_MORE", [("Igor Thiago", 7.25)]),
+        ]}, soccer)
+        self.assertEqual([(p["stat"], p["line"], p["over"]) for p in props], [("goals", 0.5, 2.4), ("goals", 1.5, 7.25)])
 
     def test_periods_closed_markets_and_suspended_prices_are_left_out(self):
         suspended = market("Tyler Warren Total Receptions 5.5", "TOTAL_RECEPTIONS_OVER_UNDER_PLAYER",

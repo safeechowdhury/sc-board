@@ -44,5 +44,13 @@ Thumbs.db
 site/
 data/cache/
 
-# upload bundle of site/ for manual hosting
+# upload bundles of site/ for manual hosting (python -m props publish), and copies unzipped from them
 sc-board-site.zip
+sc-board-pages.zip
+sc-board-site */
+.env
+sc-board-site/
+
+# the old Streamlit app and its stray data, kept locally only
+puck/
+data/20252026/

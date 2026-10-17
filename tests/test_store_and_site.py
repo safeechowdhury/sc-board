@@ -10,6 +10,7 @@ from unittest import mock
 import httpx
 
 from props import site, store
+from props.leagues import LEAGUES
 from props.leagues import mlb, nba, nfl, nhl
 
 from .helpers import game_logs, pinnacle_payload, underdog_payload
@@ -46,23 +47,44 @@ class TempStore(unittest.TestCase):
         self.mise = {"markets": []}
         self.bovada = {"markets": []}
         self.novig = {"markets": []}
+        self.kalshi = {"markets": []}
+        self.polymarket = {"markets": []}
+        self.betano = {"markets": []}
+        self.stake = {"fixtures": []}
+        self.pick6 = {"pickCardsResponse": {}}
         self.now = EVENING
 
     def build(self, fetch=None, league=nhl, pin_fetch=None, fd_fetch=None, dk_fetch=None, kambi_fetch=None, mise_fetch=None,
-              bovada_fetch=None, novig_fetch=None, **kwargs):
+              bovada_fetch=None, novig_fetch=None, kalshi_fetch=None, polymarket_fetch=None, betano_fetch=None, stake_fetch=None,
+              pick6_fetch=None, kambi_games=None, **kwargs):
         slate, board = site.slate_date, site.board_date
         with mock.patch.object(site, "slate_date", side_effect=lambda now=None: slate(now or self.now)), \
              mock.patch.object(site, "board_date", side_effect=lambda games, now=None: board(games, now or self.now)), \
+             mock.patch.object(site, "_utcnow", lambda: self.now), \
              mock.patch.object(site.underdog, "fetch", fetch or (lambda sport: self.lines)), \
              mock.patch.object(site.books.pinnacle, "fetch", pin_fetch or (lambda league: self.pin)), \
-             mock.patch.object(site.books.fanduel, "fetch", fd_fetch or (lambda league: self.fd)), \
+             mock.patch.object(site.books.fanduel, "fetch",
+                               lambda league, until=None, now=None: (fd_fetch or (lambda league: self.fd))(league)), \
              mock.patch.object(site.books.draftkings, "fetch", dk_fetch or (lambda league: self.dk)), \
              mock.patch.object(site.books.kambi, "fetch", kambi_fetch or (lambda league: self.kambi)), \
+             mock.patch.object(site.kambi, "games", kambi_games or (lambda league: getattr(self, "kambi_games", []))), \
              mock.patch.object(site.books.mise, "fetch", mise_fetch or (lambda league: self.mise)), \
-             mock.patch.object(site.books.bovada, "fetch", bovada_fetch or (lambda league: self.bovada)), \
-             mock.patch.object(site.books.novig, "fetch", novig_fetch or (lambda league: self.novig)), \
-             mock.patch.object(league, "schedule", return_value=self.schedule), \
-             mock.patch.object(league, "rosters", side_effect=lambda teams, today: self.rosters), \
+             mock.patch.object(site.books.bovada, "fetch",   # asked for the board's games only: until the last one
+                               lambda league, until=None, now=None: (setattr(self, "bovada_until", until),
+                                                           (bovada_fetch or (lambda league: self.bovada))(league))[1]), \
+             mock.patch.object(site.books.novig, "fetch",
+                               lambda league, until=None, now=None: (novig_fetch or (lambda league: self.novig))(league)), \
+             mock.patch.object(site.books.kalshi, "fetch",
+                               lambda league, until=None, now=None: (kalshi_fetch or (lambda league: self.kalshi))(league)), \
+             mock.patch.object(site.books.polymarket, "fetch",
+                               lambda league, until=None, now=None: (polymarket_fetch or (lambda league: self.polymarket))(league)), \
+             mock.patch.object(site.books.betano, "fetch",
+                               lambda league, until=None, now=None: (betano_fetch or (lambda league: self.betano))(league)), \
+             mock.patch.object(site.books.stake, "fetch",
+                               lambda league, until=None, now=None: (stake_fetch or (lambda league: self.stake))(league)), \
+             mock.patch.object(site.books.pick6, "fetch", pick6_fetch or (lambda league, until=None, now=None: self.pick6)), \
+             mock.patch.object(league, "schedule", return_value=self.schedule, create=True), \
+             mock.patch.object(league, "rosters", side_effect=lambda teams, today: self.rosters, create=True), \
              mock.patch("builtins.print"):
             out = site.build(league, **kwargs)
         html = out.read_text()
@@ -100,6 +122,43 @@ class StoreTest(TempStore):
         self.assertEqual(self.store.load()["shots"].to_list(), [4])
 
 
+class BoardGamesTest(unittest.TestCase):
+    def test_a_slow_book_is_asked_for_the_slate_at_once_then_for_later_games_underdog_put_on_the_board(self):
+        from concurrent.futures import Future
+        slate = dt.datetime(2026, 10, 3, 2, tzinfo=dt.timezone.utc)
+        calls = []
+
+        class Book:
+            @staticmethod
+            def fetch(league, now=None, until=None):
+                calls.append((now, until))
+                return {"markets": [f"by {until:%d %H}h"]}
+
+        later = Future()
+        later.set_result(dt.datetime(2026, 10, 3, 23, tzinfo=dt.timezone.utc))
+        self.assertEqual(site._board_games(Book, nhl, slate, later), {"markets": ["by 03 02h", "by 03 23h"]})
+        self.assertEqual(calls, [(None, slate), (slate + dt.timedelta(seconds=1), later.result())])
+
+        calls.clear()
+        same = Future()
+        same.set_result(slate)   # nothing past the slate: asked once
+        site._board_games(Book, nhl, slate, same)
+        self.assertEqual(len(calls), 1)
+
+
+class GamesTest(unittest.TestCase):
+    def test_a_game_under_way_or_over_is_left_off_the_slate(self):
+        now = dt.datetime(2026, 10, 13, 23, 5, tzinfo=dt.timezone.utc)
+        game = lambda away, home, start, state: {"date": "2026-10-13", "away": away, "home": home,
+                                                  "start": start, "state": state}
+        schedule = [game("NJD", "DET", "2026-10-13T22:00:00Z", "live"),
+                    game("SEA", "PHI", "2026-10-13T23:00:00Z", "upcoming"),   # started since the schedule was read
+                    game("TBL", "NYR", "2026-10-13T23:15:00Z", "upcoming")]
+        lines = [{"game": "2026-10-13|NJD@DET", "start": "2026-10-13T22:00:00Z"}]
+        games = site._games(schedule, lines, dt.date(2026, 10, 13), 1, now)
+        self.assertEqual([g["key"] for g in games], ["2026-10-13|TBL@NYR"])
+
+
 class BuildTest(TempStore):
     def setUp(self):
         super().setUp()
@@ -116,6 +175,13 @@ class BuildTest(TempStore):
         self.rosters = {"BOS": [1], "WPG": []}
         self.schedule = [{"date": "2026-10-02", "start": "2026-10-03T00:00:00Z",
                           "away": "BOS", "home": "WPG", "state": "upcoming"}]
+
+    def test_bovada_is_asked_only_for_games_up_to_the_last_on_the_board(self):
+        self.schedule.append({"date": "2026-10-03", "start": "2026-10-03T23:00:00Z",   # tomorrow: not on the board
+                              "away": "TOR", "home": "MTL", "state": "upcoming"})
+        data = self.build()
+        self.assertEqual([g["key"] for g in data["games"]], ["2026-10-02|BOS@WPG"])
+        self.assertEqual(self.bovada_until, dt.datetime(2026, 10, 3, tzinfo=dt.timezone.utc))
 
     def test_board_row_carries_line_rates_and_context(self):
         data = self.build()
@@ -176,6 +242,16 @@ class BuildTest(TempStore):
         self.assertEqual(data["rows"][0]["id"], 9)
         self.assertIn(9, [player[0] for player in data["players"]])
         self.assertTrue((site.OUT / "p" / "nhl" / "9.js").is_file())
+
+    def test_player_files_are_rewritten_only_when_the_game_logs_change(self):
+        self.build()
+        page = site.OUT / "p" / "nhl" / "1.js"
+        page.write_text("as uploaded")   # stands in for a file no build should touch
+        self.build()
+        self.assertEqual(page.read_text(), "as uploaded")   # same logs, same players: left alone
+        self.store.write_season(20222023, game_logs(season_rows(20222023, ["2022-11-01"], shots=3)))
+        self.build()
+        self.assertTrue(page.read_text().startswith("SCBOARD.player("))
 
     def test_player_log_file_is_written_newest_first(self):
         self.build()
@@ -276,12 +352,13 @@ class BuildTest(TempStore):
         self.assertEqual([g["key"] for g in data["games"]], ["2026-10-03|WPG@BOS"])
         self.assertFalse(any(row["ud"] for row in data["rows"]))   # last night's lines are gone
 
-    def test_after_midnight_a_game_still_going_holds_the_board(self):
+    def test_after_midnight_a_game_still_going_holds_the_board_without_its_lines(self):
         self.now = dt.datetime(2026, 10, 3, 1, 30, tzinfo=site.ET)
         self.schedule[0]["state"] = "live"
         data = self.build()
         self.assertEqual(data["date"], "2026-10-02")
-        self.assertTrue(any(row["ud"] for row in data["rows"]))
+        self.assertEqual(data["games"], [])
+        self.assertFalse(any(row["ud"] for row in data["rows"]))   # under way: no longer bettable
 
     def test_pinnacle_prices_are_keyed_like_the_rows(self):
         self.pin = pinnacle_payload([("David Pastrnak", "Shots On Goal", 3.5, -125, 105),
@@ -294,12 +371,23 @@ class BuildTest(TempStore):
         self.fd = {"markets": [{"name": "David Pastrnak Shots on Goal", "runners": [
             {"name": "David Pastrnak - Over", "handicap": 3.5, "status": "ACTIVE", "odds": 1.95},
             {"name": "David Pastrnak - Under", "handicap": 3.5, "status": "ACTIVE", "odds": 1.87}]}]}
-        books = self.build()["books"]
-        self.assertEqual([(b["key"], b["short"], b["sharp"], b["target"]) for b in books],
-                         [("pinnacle", "Pinnacle", True, False), ("fanduel", "FanDuel", True, False),
-                          ("draftkings", "DK", True, False), ("kambi", "Kambi", True, False), ("novig", "Novig", True, False),
-                          ("mise", "Mise", False, True),          # a site to bet on, never part of the fair chance
-                          ("bovada", "Bovada", False, False)])    # shown only
+        data = self.build()
+        books = data["books"]
+        self.assertEqual([(b["key"], b["short"], b["weight"], b["sharp"], b["target"]) for b in books],
+                         [("pinnacle", "Pinnacle", 1.4, True, False),
+                          ("fanduel", "FanDuel", 1, True, True),   # sharp, and a site to bet on: left out of fair when picked
+                          ("draftkings", "DK", 1.4, True, False),
+                          ("kambi", "Kambi", 0, False, False),    # shown only: BetRivers' odds
+                          ("novig", "Novig", 7, True, False), ("kalshi", "Kalshi", 7, True, False),
+                          ("polymarket", "Poly", 7, True, False),
+                          ("mise", "Mise", 0, False, True),       # a site to bet on, never part of the fair chance
+                          ("betano", "Betano", 0, False, True),   # likewise
+                          ("stake", "Stake", 0, False, True),     # likewise
+                          ("pick6", "Pick6", 0, False, False),    # shown only: its one flat pick'em price
+                          ("bovada", "Bovada", 0, False, False)])  # shown only
+        self.assertEqual(data["fair"], {"maxOverround": 0.1,
+                                        "confident": [["novig"], ["kalshi"], ["polymarket"], ["pinnacle", "draftkings", "fanduel"]],
+                                        "estimate": ["novig", "kalshi", "polymarket"]})
         self.assertEqual(books[1]["prices"], {"1|shots": [3.5, 1.95, 1.87]})
         self.assertIsNone(books[0]["fetched"])                  # no Pinnacle prices, so no time to show
 
@@ -308,8 +396,9 @@ class BuildTest(TempStore):
             raise httpx.ConnectError("blocked")
 
         data = self.build(pin_fetch=down, fd_fetch=down, dk_fetch=down, kambi_fetch=down, mise_fetch=down, bovada_fetch=down,
-                          novig_fetch=down)
-        self.assertEqual([(b["prices"], b["fetched"]) for b in data["books"]], [({}, None)] * 7)
+                          novig_fetch=down, kalshi_fetch=down, polymarket_fetch=down, betano_fetch=down,
+                          stake_fetch=down, pick6_fetch=down)
+        self.assertEqual([(b["prices"], b["fetched"]) for b in data["books"]], [({}, None)] * 12)
         self.assertEqual(sum(row["ud"] for row in data["rows"]), 2)
 
 
@@ -349,14 +438,14 @@ class NflBuildTest(TempStore):
 
     def test_page_carries_every_leagues_underdog_settings_for_refresh(self):
         config = self.build(league=nfl)["underdog"]
-        self.assertEqual(set(config), {"nhl", "nfl", "nba", "mlb"})
+        self.assertEqual(set(config), {"nhl", "nfl", "nba", "mlb", "cfb", "soccer"})
         self.assertIn("sport_id=NHL", config["nhl"]["url"])
         self.assertEqual((config["nfl"]["sport"], config["nfl"]["stats"]["receiving_yds"], config["nfl"]["teams"]["LA"]),
                          ("NFL", "rec_yds", "LAR"))
 
     def test_every_tab_has_a_short_name(self):
-        for league in (nhl, nfl, nba, mlb):
-            self.assertEqual(set(league.TABS), set(league.PROPS), league.NAME)
+        for league in LEAGUES.values():
+            self.assertLessEqual(set(league.PROPS), set(league.TABS), league.NAME)
 
     def test_sunday_game_is_on_fridays_slate_and_untracked_stats_are_dropped(self):
         data = self.build(league=nfl)
@@ -432,7 +521,7 @@ class NflBuildTest(TempStore):
                           .group(1).replace("<\\/", "</"))
         self.assertEqual(data["sports"], [["NFL", "NFL", 2]])
         self.assertTrue(data["url"].endswith("sport_id="))
-        self.assertIn(["UD Lines", "ud.html"], data["nav"])
+        self.assertNotIn(["UD Lines", "ud.html"], data["nav"])   # an app of its own, not a league
         links = json.loads((site.OUT / "ud" / "nfl.js").read_text().removeprefix("UDLINKS.push(").removesuffix(")"))
         self.assertEqual((links["page"], links["sport"], links["players"]), ("nfl.html", "NFL", {"puka nacua": "00-0039075"}))
         self.assertEqual(links["stats"]["receiving_yds"], "rec_yds")

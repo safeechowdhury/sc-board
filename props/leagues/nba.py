@@ -236,11 +236,13 @@ FANDUEL_STATS = {
 # One-way ladders: "To Score 20+ Points", "3+ Made Threes", "To Record 20+ Pts + Ast", "To Record A Double Double"
 FANDUEL_LADDERS = {**FANDUEL_STATS, "Double Double": "double_double", "Triple Double": "triple_double"}
 DRAFTKINGS_LEAGUE = 42648
-# DraftKings had no NBA game props up in the preseason. These are the categories its other
-# leagues name this way; the build lists the O/U subcategories it finds there but doesn't map.
 DRAFTKINGS_CATEGORIES = ["Player Points", "Player Rebounds", "Player Assists", "Player Threes", "Player Combos",
                          "Player Defense"]
-DRAFTKINGS_STATS: dict[str, str] = {}
+DRAFTKINGS_STATS = {   # two-way subcategory names
+    "Points O/U": "points", "Rebounds O/U": "rebounds", "Assists O/U": "assists", "Threes O/U": "threes",
+    "Pts + Reb + Ast O/U": "pts_rebs_asts", "Pts + Reb O/U": "pts_rebs", "Pts + Ast O/U": "pts_asts",
+    "Ast + Reb O/U": "rebs_asts", "Steals O/U": "steals", "Blocks O/U": "blocks",
+}
 DRAFTKINGS_LADDERS: dict[str, str] = {}
 
 KAMBI_PATH = "basketball/nba"
@@ -253,11 +255,44 @@ NOVIG_STATS = {
     "BLOCKS": "blocks",
 }
 
+POLYMARKET_SPORT = "nba"
+POLYMARKET_STATS = {"points": "points", "rebounds": "rebounds", "assists": "assists"}   # "Jayson Tatum: Points O/U 26.5"
+KALSHI_GAME, KALSHI_TOTAL = "KXNBAGAME", "KXNBATOTAL"
+KALSHI_STATS = {   # Kalshi series; none had markets up in the preseason, so unconfirmed
+    "KXNBAPTS": "points", "KXNBAREB": "rebounds", "KXNBAAST": "assists", "KXNBA3PT": "threes",
+    "KXNBAPRA": "pts_rebs_asts", "KXNBAPR": "pts_rebs", "KXNBAPA": "pts_asts", "KXNBARA": "rebs_asts",
+    "KXNBASTL": "steals", "KXNBABLK": "blocks", "KXNBASTOCK": "blks_stls",
+    "KXNBA2D": "double_double", "KXNBA3D": "triple_double",
+}
+
 BOVADA_PATH = "basketball/nba"
 BOVADA_STATS: dict[str, str] = {}   # game lines only in the preseason
 
 MISE_LEAGUE = "27726"   # "NBA Preseason"; the regular season may carry another tag
 MISE_STATS: dict[str, str] = {}
+
+BETANO_PATH = "/sport/basketball/north-america/nba/441g/"   # its league page on betano.ca
+
+STAKE_SPORT = 'basketball'     # its sport slug on stake.com
+PICK6_SPORT = 'NBA'     # its sport code on pick6.draftkings.com
+BETANO_STATS = {
+    "Points": "points", "Rebounds": "rebounds", "Assists": "assists",
+    "Points+Rebounds+Assists": "pts_rebs_asts", "Rebounds+Assists": "rebs_asts",
+    "Points+Rebounds": "pts_rebs", "Points+Assists": "pts_asts",
+    "Three Point Shots Scored": "threes", "Double-Double": "double_double",
+    "Triple-Double": "triple_double",
+}
+BETANO_FIRST = {}
+
+STAKE_STATS = {
+    "Points": "points", "Rebounds": "rebounds", "Assists": "assists",
+    "Three Pointers Made": "threes", "Points+Rebounds+Assists": "pts_rebs_asts",
+    "Steals": "steals", "Blocks": "blocks",
+}
+PICK6_STATS = {
+    "Points": "points", "Rebounds": "rebounds", "Assists": "assists",
+    "Three Pointers Made": "threes",
+}
 
 PROPS = {
     "points": ("Points", "PTS"),

@@ -335,6 +335,19 @@ NOVIG_STATS = {   # Novig market types
     "FIELD_GOALS_MADE": "fg_made", "KICKING_POINTS": "kicking_points",
 }
 
+POLYMARKET_SPORT = "nfl"
+POLYMARKET_STATS = {   # its market types ("C.J. Stroud: Passing Yards O/U 149.5", "Bhayshul Tuten: 2+ Touchdowns")
+    "passing_yards": "pass_yds", "passing_touchdowns": "pass_tds", "passing_attempts": "pass_att",
+    "passing_completions": "pass_cmp", "rushing_yards": "rush_yds", "receiving_yards": "rec_yds",
+    "receptions": "receptions", "anytime_touchdowns": "rush_rec_tds", "two_plus_touchdowns": "rush_rec_tds",
+}
+KALSHI_GAME, KALSHI_TOTAL = "KXNFLGAME", "KXNFLTOTAL"
+KALSHI_STATS = {   # Kalshi series, each market a rung ("Kirk Cousins: 3+ passing touchdowns")
+    "KXNFLPASSYDS": "pass_yds", "KXNFLPASSTDS": "pass_tds", "KXNFLPASSCOMP": "pass_cmp", "KXNFLPASSATT": "pass_att",
+    "KXNFLPASSINT": "pass_int", "KXNFLRSHYDS": "rush_yds", "KXNFLRSHATT": "rush_att", "KXNFLRRYDS": "rush_rec_yds",
+    "KXNFLRECYDS": "rec_yds", "KXNFLREC": "receptions", "KXNFLTD": "rush_rec_tds",
+}
+
 BOVADA_PATH = "football/nfl"
 # Bovada market names, before " - Player (TEAM)" or with the count as N (bovada.parse)
 BOVADA_STATS = {
@@ -372,6 +385,39 @@ MISE_STATS = {
     "PLAYER_UNDEFINED_TOTAL_TOUCHDOWNS": "rush_rec_tds",
 }
 
+BETANO_PATH = "/sport/football/north-america/nfl/1611r/"   # its league page on betano.ca
+
+STAKE_STATS = {
+    "Receiving Yards": "rec_yds", "Receptions": "receptions", "Rushing Yards": "rush_yds",
+    "Rushing Attempts": "rush_att", "Passing Yards": "pass_yds", "Passing Attempts": "pass_att",
+    "Passing Completions": "pass_cmp", "Passing Touchdowns": "pass_tds", "Interceptions": "pass_int",
+    "Passing+Rushing Yards": "pass_rush_yds", "Anytime Touchdown": "rush_rec_tds",
+    # "Rushing Touchdowns" and "Receiving Touchdowns" are each only part of a player's TDs: not the TD row
+    "Field Goal Made": "fg_made", "Extra Point Made": "xp_made", "Kicking Points": "kicking_points",
+}
+PICK6_STATS = {
+    "Passing Yards": "pass_yds", "Passing TDs": "pass_tds", "Rushing Yards": "rush_yds",
+    "Receiving Yards": "rec_yds", "Receptions": "receptions", "Rush + Rec Yards": "rush_rec_yds",
+    "Rush + Rec TD": "rush_rec_tds",
+    "Pass Completions": "pass_cmp", "Interceptions": "pass_int", "Field Goal Made": "fg_made",
+    "Kicking Points": "kicking_points", "Passing Touchdowns": "pass_tds",
+}
+
+STAKE_SPORT = 'american-football'     # its sport slug on stake.com
+PICK6_SPORT = 'NFL'     # its sport code on pick6.draftkings.com
+BETANO_STATS = {
+    "Passing Yards": "pass_yds", "Rushing Yards": "rush_yds", "Receiving Yards": "rec_yds",
+    "Receptions": "receptions", "Pass Completions": "pass_cmp", "Pass Attempts": "pass_att",
+    "Interceptions": "pass_int", "Passing and Rushing Yards": "pass_rush_yds",
+    "Rushing and Receiving Yards": "rush_rec_yds", "Anytime Touchdown": "rush_rec_tds",
+    # "Rushing Touchdowns" and "Receiving Touchdowns" are each only part of a player's TDs: not the TD row
+    "Passing Touchdowns": "pass_tds", "Rushing Attempts": "rush_att",
+    "Field Goals Made": "fg_made", "Extra Points Made": "xp_made", "Kicking Points": "kicking_points",
+    "Lost Fumbles": "fumbles_lost", "Passing Attempts": "pass_att",
+    "Multi Touchdown Scorer": "rush_rec_tds",
+}
+BETANO_FIRST = {}
+
 PROPS = {
     "pass_yds": ("Pass Yards", "PASS YDS"),
     "pass_tds": ("Pass TDs", "PASS TD"),
@@ -402,6 +448,7 @@ LABELS = {"snaps": ("Snaps", "SNAPS")}
 # Stats that are another column at a set line, with a tab of their own: 2+ TDs is rush + rec TDs over 1.5,
 # kept apart from the anytime TD row. A board row is made for each player a book prices there.
 FIXED_LINES = {"two_tds": ("rush_rec_tds", 1.5)}
+ANYTIME_STATS = {"rush_rec_tds"}   # a book's 2+ or 3+ TD rung is never the anytime row's price (books.prices)
 CLOCK: list[str] = []
 
 POSITIONS = {

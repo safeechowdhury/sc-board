@@ -17,9 +17,16 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
+from . import matchups, net
+from .icons import icon
+
 KEY, NAME, SHORT = "novig", "Novig", "Novig"
-SHARP = True     # an exchange's prices count toward the fair chance
+WEIGHT = 7       # an exchange's prices carry the most weight in the fair chance (books.py)
+ICON = icon("novig.png")   # shown in place of its name in the column heading
 TARGET = False
+BOARD_GAMES_ONLY = True   # a request per game: the board asks only for its games' (site.build passes `until`)
+PER_GAME = True   # costs a request per game: an odds board asks it only for the next two days' games
+LEAGUE_ATTR = "NOVIG_LEAGUE"
 
 URL = "https://api.novig.us/nbx/v1"
 HEADERS = {"User-Agent": "Mozilla/5.0", "Accept": "application/json", "Origin": "https://novig.com"}
@@ -39,25 +46,39 @@ def _compact(page: dict) -> list[dict]:
     return markets
 
 
-def fetch(league, now: dt.datetime | None = None) -> dict:
-    """The player props of every game in the league starting within its slate, before it starts."""
-    now = now or dt.datetime.now(dt.timezone.utc)
-    until = now + dt.timedelta(days=league.SLATE_DAYS + 1)
+def _cards(page: dict) -> list[dict]:
+    """A league page's games: in its sections' components, or a level down in their subsections
+    (college football's page groups its games by conference)."""
+    contents = [s.get("content") or {} for s in page.get("sections", [])]
+    components = [c for content in contents for c in content.get("components") or []]
+    components += [c for content in contents for sub in content.get("subSections") or [] for c in sub.get("components") or []]
+    return [c for c in components if c.get("type") == "game_event_card"]
+
+
+def fetch(league, now: dt.datetime | None = None, until: dt.datetime | None = None) -> dict:
+    """The player props of every game in the league starting from now until `until` (by default, the
+    end of its slate), before it starts."""
+    now = now or net.now()
+    until = until or now + dt.timedelta(days=league.SLATE_DAYS + 1)
     with httpx.Client(timeout=60, headers=HEADERS, transport=httpx.HTTPTransport(retries=3)) as http:
         def get(path: str, params: dict | None = None) -> dict:
-            r = http.get(f"{URL}{path}", params=params)
+            with net.site("novig"):
+                r = http.get(f"{URL}{path}", params=params)
             r.raise_for_status()
             return r.json()
 
         page = get(f"/trading/{league.NOVIG_LEAGUE}/page")
-        games = [c["eventId"] for s in page.get("sections", []) if (s.get("content") or {}).get("type") == "components"
-                 for c in s["content"].get("components", [])
-                 if c.get("type") == "game_event_card" and c.get("eventStatus") == "OPEN_PREGAME"
-                 and now < dt.datetime.fromisoformat(c["scheduledStart"].replace("Z", "+00:00")) < until]
+        name = lambda c: " @ ".join(((c.get(side) or {}).get("name") or "") for side in ("awayTeam", "homeTeam"))
+        games = {c["eventId"]: matchups.game_of(c["scheduledStart"], name(c)) for c in _cards(page)
+                 if c.get("eventStatus") == "OPEN_PREGAME"
+                 and now < dt.datetime.fromisoformat(c["scheduledStart"].replace("Z", "+00:00")) <= until
+                 and matchups.on_board(league, c["scheduledStart"], *(((c.get(side) or {}).get("name") or "")
+                                                                      for side in ("awayTeam", "homeTeam")))}
         with ThreadPoolExecutor(max_workers=3) as pool:
             pages = pool.map(lambda game: get(f"/event-details/{game}/player-props", {"displayUnseededMarkets": "false"}),
                              games)
-            return {"markets": [m for p in pages for m in _compact(p)]}
+            # each market says which game it's for ([start, "Chelsea FC @ Everton FC"])
+            return {"markets": [{**m, **({"game": game} if game else {})} for game, p in zip(games.values(), pages) for m in _compact(p)]}
 
 
 def _price(chance) -> float | None:
@@ -79,5 +100,5 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
             continue
         # a yes/no with no count ("FIRST_GOAL_SCORER") has strike 0: yes is one or more
         props.append({"player": m["player"], "stat": stat, "line": float(m["strike"]) or 0.5,
-                      "over": over, "under": _price(m["under"])})
+                      "over": over, "under": _price(m["under"]), **({"game": m["game"]} if m.get("game") else {})})
     return props, skipped

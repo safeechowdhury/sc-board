@@ -39,8 +39,8 @@ class FetchAndParseTest(unittest.TestCase):
     def fetch(self):
         pages = {
             "https://sportsbook-nash.draftkings.com/api/sportscontent/dkusny/v1/leagues/84240":
-                {"categories": [{"id": 743, "name": "Batter Props"}, {"id": 985, "name": "Live Batter Props"}]},
-            ".../categories/743": {"subcategories": [
+                {"categories": [{"id": 743, "name": "Batter Props"}, {"id": 985, "name": "Live Batter Props"}],
+                 "subcategories": [
                 {"id": 17406, "categoryId": 743, "name": "Hits + Runs + RBIs O/U"},
                 {"id": 17843, "categoryId": 743, "name": "Hits + Runs + RBIs"},            # an N+ ladder
                 {"id": 17844, "categoryId": 743, "name": "Triples"},                        # a ladder not mapped
@@ -71,6 +71,9 @@ class FetchAndParseTest(unittest.TestCase):
             def __exit__(self, *exc):
                 pass
 
+            def close(self):
+                pass
+
             def get(self, url):
                 calls.append(url)
                 if url == draftkings.HOME:
@@ -85,8 +88,9 @@ class FetchAndParseTest(unittest.TestCase):
     def test_opens_the_home_page_first_and_reads_only_mapped_subcategories(self):
         raw, calls = self.fetch()
         self.assertEqual(calls[0], draftkings.HOME)
+        # the league's page lists the subcategories: no category's own page is asked for
         self.assertEqual(sorted(c.rsplit("/v1/leagues/", 1)[1] for c in calls[1:]),
-                         ["84240", "84240/categories/743", "84240/categories/743/subcategories/17406",
+                         ["84240", "84240/categories/743/subcategories/17406",
                           "84240/categories/743/subcategories/17843"])
         self.assertEqual([s["name"] for s in raw["subcategories"]], ["Hits + Runs + RBIs O/U", "Hits + Runs + RBIs", "Triples O/U"])
 

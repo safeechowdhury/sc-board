@@ -2,7 +2,7 @@ import datetime as dt
 import unittest
 import unittest.mock
 
-from props import kambi
+from props import kambi, net
 from props.leagues import mlb, nfl, nhl
 
 
@@ -64,9 +64,9 @@ class FetchTest(unittest.TestCase):
                                     {"event": {"id": 3, "state": "NOT_STARTED", "start": "2026-10-20T17:00:00Z"}}]}
                         if "listView" in url else
                         {"betOffers": [
-                            {"criterion": {"englishLabel": "Total Hits by the Player"}, "outcomes": [
+                            {"eventId": 1, "criterion": {"englishLabel": "Total Hits by the Player"}, "outcomes": [
                                 {"participant": "Ty France", "type": "OT_OVER", "line": 500, "odds": 1500, "status": "OPEN"}]},
-                            {"criterion": {"englishLabel": "Run Line"}, "outcomes": [
+                            {"eventId": 1, "criterion": {"englishLabel": "Run Line"}, "outcomes": [
                                 {"participant": "San Diego Padres", "type": "OT_ONE", "line": -1500, "odds": 2100, "status": "OPEN"}]}]})
                 return type("R", (), {"raise_for_status": lambda self: None, "json": lambda self: data})()
 
@@ -76,6 +76,36 @@ class FetchTest(unittest.TestCase):
         self.assertEqual(payload, {"offers": [{"criterion": "Total Hits by the Player", "outcomes": [
             {"player": "Ty France", "type": "OT_OVER", "line": 500, "odds": 1500, "status": "OPEN"}]}]})   # a team's run line isn't a prop
         self.assertEqual(http.seen, [["baseball", "mlb.json"], ["event", "1.json"]])   # started and far-off games skipped
+
+    def test_games_are_asked_for_ten_a_request_and_once_a_run(self):
+        asked = []
+
+        def get(http, path, params=None):
+            ids = [int(i) for i in path.rsplit("/", 1)[1].removesuffix(".json").split(",")]
+            asked.append(ids)
+            return {"betOffers": [{"id": i, "eventId": i, "criterion": {"englishLabel": "To Score"}, "outcomes": []} for i in ids],
+                    "range": {"start": 0, "size": kambi.PAGE, "total": len(ids)}}
+
+        with unittest.mock.patch.object(kambi, "_get", get), net.run():
+            first = kambi.offers(None, list(range(1, 13)))
+            again = kambi.offers(None, [12, 13])   # the lines page: game 12 is already answered
+        self.assertEqual(asked, [list(range(1, 11)), [11, 12], [13]])
+        self.assertEqual([o["eventId"] for o in first], list(range(1, 13)))
+        self.assertEqual([o["eventId"] for o in again], [12, 13])
+
+    def test_a_batch_with_more_offers_than_a_page_is_paged(self):
+        asked = []
+
+        def get(http, path, params=None):
+            asked.append(params["range_start"])
+            offers = [{"id": n, "eventId": 1 + n % 2} for n in range(5)]   # five offers, two a page
+            return {"betOffers": offers[params["range_start"]:params["range_start"] + params["range_size"]],
+                    "range": {"start": params["range_start"], "size": params["range_size"], "total": 5}}
+
+        with unittest.mock.patch.object(kambi, "_get", get), unittest.mock.patch.object(kambi, "PAGE", 2):
+            found = kambi.offers(None, [1, 2])
+        self.assertEqual(asked, [0, 2, 4])
+        self.assertEqual(sorted(o["id"] for o in found), [0, 1, 2, 3, 4])
 
 
 if __name__ == "__main__":

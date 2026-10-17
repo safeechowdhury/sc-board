@@ -326,6 +326,21 @@ NOVIG_STATS = {   # Novig market types
     "EARNED_RUNS": "earned_runs", "WALKS": "walks_allowed",
 }
 
+POLYMARKET_SPORT = "mlb"
+POLYMARKET_STATS = {   # "Drew Anderson: Strikeouts O/U 2.5"
+    "baseball_player_hits": "hits", "baseball_player_total_bases": "total_bases",
+    "baseball_player_hits_runs_rbis": "hits_runs_rbis", "baseball_player_home_runs": "home_runs",
+    "baseball_player_strikeouts": "strikeouts", "baseball_player_outs": "outs",
+    "baseball_player_hits_allowed": "hits_allowed", "baseball_player_earned_runs_allowed": "earned_runs",
+    "baseball_player_walks_allowed": "walks_allowed",
+}
+KALSHI_GAME, KALSHI_TOTAL = "KXMLBGAME", "KXMLBTOTAL"
+KALSHI_STATS = {   # Kalshi series, each market a rung ("Yandy Diaz: 2+ hits?")
+    "KXMLBHIT": "hits", "KXMLBTB": "total_bases", "KXMLBHRR": "hits_runs_rbis", "KXMLBRBI": "rbis",
+    "KXMLBHR": "home_runs", "KXMLBSB": "stolen_bases", "KXMLBKS": "strikeouts", "KXMLBOUTS": "outs",
+    "KXMLBHA": "hits_allowed", "KXMLBERA": "earned_runs", "KXMLBWA": "walks_allowed",
+}
+
 BOVADA_PATH = "baseball/mlb"
 # Bovada market names, before " - Player (TEAM)" or with the count as N (bovada.parse)
 BOVADA_STATS = {
@@ -352,6 +367,35 @@ MISE_STATS = {
     "PLAYER_UNDEFINED_TOTAL_DOUBLES": "doubles",
     "PLAYER_UNDEFINED_TOTAL_STOLEN_BASES": "stolen_bases",
     "PLAYER_UNDEFINED_TOTAL_BATTERS_STRUCK_OUT": "strikeouts",
+}
+
+BETANO_PATH = "/sport/baseball/north-america/mlb/1662r/"   # its league page on betano.ca
+
+STAKE_SPORT = 'baseball'     # its sport slug on stake.com
+PICK6_SPORT = 'MLB'     # its sport code on pick6.draftkings.com
+BETANO_STATS = {
+    "Hits": "hits", "Hits O/U": "hits", "Batter RBI's": "rbis", "Batter RBI's O/U": "rbis",
+    "Batter Strikeouts": "batter_ks", "Batter Walks": "walks", "Batter Walks O/U": "walks",
+    "Doubles": "doubles", "Singles": "singles", "Home Runs": "home_runs", "Runs": "runs",
+    "Total Bases": "total_bases", "Stolen Bases": "stolen_bases",
+    "Earned Runs": "earned_runs", "Hits Allowed": "hits_allowed", "Strikeouts": "strikeouts",
+    "Walks Allowed": "walks_allowed", "Outs": "outs", "RBIs": "rbis",
+    "Walks": "walks_allowed",   # the pitchers' ladder ("1+", "3+"); batters' is "Batter Walks"
+    "Hits+Runs+RBIs": "hits_runs_rbis",
+}
+BETANO_FIRST = {}
+
+STAKE_STATS = {
+    "Hits": "hits", "Runs": "runs", "RBIs": "rbis", "Total Bases": "total_bases",
+    "Home Runs": "home_runs", "Batter Strikeouts": "batter_ks", "Batter Walks": "walks",
+    "Walks": "walks_allowed", "Stolen Bases": "stolen_bases", "Strikeouts": "strikeouts",
+    "Earned Runs": "earned_runs", "Hits Allowed": "hits_allowed", "Outs": "outs",
+    "Doubles": "doubles", "Singles": "singles", "Hits + Runs + RBIs": "hits_runs_rbis",
+}
+PICK6_STATS = {
+    "Strikeouts Thrown": "strikeouts", "Hits": "hits", "Hits + Runs + RBIs": "hits_runs_rbis",
+    "Home Runs": "home_runs", "Total Bases": "total_bases", "Runs": "runs", "RBIs": "rbis",
+    "Doubles": "doubles", "Walks": "walks", "Outs": "outs",
 }
 
 PROPS = {
@@ -478,3 +522,5 @@ def backfill(store, seasons: list[int]):
         store.write_season(season, df)
         yield (f"{season}: {df['game_id'].n_unique()} games, {df.height} player-games "
                f"({df['date'].min()} to {df['date'].max()})")
+
+ANYTIME_STATS = {"home_runs"}   # a home run: a book's 2+ rung is never its price (books.prices)

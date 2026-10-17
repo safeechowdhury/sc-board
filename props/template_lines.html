@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Lines</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page: #070707; --surface: #101010; --raised: #1a1a1a; --ink: #f5f5f5; --ink-2: #b9b9b9;
+    --ink-3: #8a8a8a; --rule: #242424; --accent: #6aa5f2; --hit: #22ab7f; --miss: #d03b3b;
+    --gold: #d9b64a; --shadow: 0 12px 40px rgba(0, 0, 0, .5);
+    --cond: "Avenir Next Condensed", "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --page: #e8eef2; --surface: #fbfdfe; --raised: #ffffff; --ink: #0d1b26; --ink-2: #445564;
+      --ink-3: #6f7f8c; --rule: #d6dfe6; --accent: #1d5fc4; --hit: #12a37a; --miss: #d03b3b; --gold: #a3801d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 var(--body); }
+  header { position: sticky; top: 0; z-index: 3; background: var(--surface); border-bottom: 1px solid var(--rule);
+           padding: 9px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header h1 { font: 600 17px/1 var(--cond); letter-spacing: .4px; margin: 0; text-transform: uppercase; }
+  header small { color: var(--ink-3); }
+  nav { display: flex; gap: 5px; }
+  nav button { background: none; border: 1px solid var(--rule); color: var(--ink-2); border-radius: 7px;
+               padding: 4px 12px; font: 600 12.5px/1.3 var(--body); cursor: pointer; }
+  nav button.on { background: var(--raised); color: var(--ink); border-color: var(--ink-3); }
+  .valuebar { position: sticky; top: 41px; z-index: 2; background: var(--page); padding: 8px 16px;
+              display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--rule); }
+  .valuebar .label { font: 600 12px/1 var(--cond); text-transform: uppercase; letter-spacing: .5px; color: var(--ink-3); }
+  .valuebar button { background: none; border: 1px solid var(--rule); color: var(--ink-2); border-radius: 999px;
+                     padding: 3px 11px; font-size: 12px; cursor: pointer; }
+  .grid thead th .bookicon.head { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; vertical-align: middle;
+    box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent); }
+  .valuebar .bookicon { width: 14px; height: 14px; object-fit: contain; border-radius: 3px; vertical-align: -3px; margin-left: 2px; }
+  .valuebar button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .valuebar .hint { color: var(--ink-3); font-size: 11.5px; margin-left: auto; }
+  main { max-width: 1340px; margin: 0 auto; padding: 12px 16px 70px; }
+  .league h2 { font: 600 13px/1 var(--cond); text-transform: uppercase; letter-spacing: .6px;
+               color: var(--ink-2); margin: 16px 2px 8px; }
+  .err { color: var(--gold); font-size: 12px; margin: 4px 2px; }
+  .grid { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--rule);
+          border-radius: 10px; overflow: hidden; font-variant-numeric: tabular-nums; }
+  .grid thead th { position: sticky; background: var(--surface); color: var(--ink-3); font: 600 11px/1.2 var(--body);
+                   padding: 6px 4px; text-align: center; border-bottom: 1px solid var(--rule); }
+  .grid thead tr:first-child th { top: 0; }
+  .grid thead tr.sub th { top: 30px; color: var(--ink-3); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; }
+  .grid thead th.game { text-align: left; padding-left: 10px; }
+  .grid thead th.featured { color: var(--gold); }
+  .grid thead th .sharp { color: var(--hit); }
+  .grid thead th.valcol { color: var(--accent); }
+  .grid td { padding: 6px 4px; border-bottom: 1px solid var(--rule); text-align: center; vertical-align: middle; }
+  .grid tr:hover td { background: var(--raised); }
+  tr.date td { background: var(--page); color: var(--ink-3); font: 600 10.5px/1.4 var(--cond);
+               text-transform: uppercase; letter-spacing: .6px; text-align: left; padding: 4px 10px; }
+  td.game { text-align: left; min-width: 132px; }
+  td.game .t { font-weight: 600; white-space: nowrap; }
+  td.game .s { color: var(--ink-3); font-size: 11.5px; }
+  td.game .tot { color: var(--gold); font-size: 11.5px; }
+  .bk { white-space: nowrap; }
+  .bk .ml { font-weight: 600; }
+  .bk .tot { color: var(--ink-2); font-size: 12px; margin-top: 1px; }
+  .bk .tot b { color: var(--ink); font-weight: 600; }
+  .bk .sp { color: var(--ink-3); font-size: 10.5px; margin-top: 1px; }
+  .best { color: var(--hit); font-weight: 700; }
+  .none { color: var(--rule); }
+  .sep { color: var(--rule); padding: 0 1px; }
+  td.fair, td.ev { font-size: 12px; min-width: 88px; }
+  td.fair { color: var(--ink-2); }
+  .up { color: var(--hit); font-weight: 700; }
+  .down { color: var(--ink-3); }
+  .value { border: 1px solid var(--rule); background: var(--surface); border-radius: 10px; padding: 10px 12px;
+           margin: 14px 0; }
+  .value h3 { margin: 0 0 8px; font: 600 13px/1 var(--cond); text-transform: uppercase; letter-spacing: .5px;
+              color: var(--ink-2); }
+  .value .plays { display: grid; grid-template-columns: repeat(auto-fill, minmax(285px, 1fr)); gap: 8px; }
+  .play { border: 1px solid var(--rule); border-radius: 8px; padding: 7px 10px; background: var(--raised);
+          display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .play .what { text-align: left; }
+  .play .what .pick { font-weight: 600; }
+  .play .what .where { color: var(--ink-3); font-size: 11.5px; }
+  .play .evv { color: var(--hit); font-weight: 700; white-space: nowrap; }
+  footer { color: var(--ink-3); font-size: 12px; padding: 14px 2px; }
+  @media (max-width: 900px) { body { font-size: 13px; } .bk .sp { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Game Lines</h1>
+  <small id="stamp"></small>
+  <nav id="tabs" style="margin-left:auto"></nav>
+</header>
+<div class="valuebar" id="valuebar"></div>
+<main id="page"></main>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+let targetBook = "betano";
+const fmt = p => p == null ? null : (Math.round(p * 100) / 100).toFixed(2);
+const pct = p => p == null ? null : (100 * p).toFixed(1) + "%";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const none = `<span class="none">&ndash;</span>`;
+const sep = `<span class="sep">/</span>`;
+
+// each book's cell: moneyline pair over the total pair, spreads muted below
+function bestMarks(game) {
+  const best = {};
+  for (const b of Object.values(game.books)) {
+    if (b.ml && b.ml.away != null) best.away = Math.max(best.away ?? -Infinity, b.ml.away);
+    if (b.ml && b.ml.home != null) best.home = Math.max(best.home ?? -Infinity, b.ml.home);
+    const t = (b.totals || [])[0];
+    if (t && t.over != null) best.over = Math.max(best.over ?? -Infinity, t.over);
+    if (t && t.under != null) best.under = Math.max(best.under ?? -Infinity, t.under);
+  }
+  return (side, price) => best[side] != null && price != null && price === best[side] ? "best" : "";
+}
+
+function cell(game, key, marks) {
+  const b = game.books[key];
+  if (!b) return `<td class="none">&ndash;</td>`;
+  const t = (b.totals || [])[0], sp = (b.spreads || [])[0];
+  const ml = b.ml ? `<div class="ml">${b.ml.away != null ? `<span class="${marks("away", b.ml.away)}">${fmt(b.ml.away)}</span>` : none}`
+      + ` ${sep} ${b.ml.home != null ? `<span class="${marks("home", b.ml.home)}">${fmt(b.ml.home)}</span>` : none}</div>` : `<div class="ml">${none}</div>`;
+  const total = t ? `<div class="tot"><b>${t.line}</b> ${t.over != null ? `<span class="${marks("over", t.over)}">${fmt(t.over)}</span>` : none}`
+      + ` ${sep} ${t.under != null ? `<span class="${marks("under", t.under)}">${fmt(t.under)}</span>` : none}</div>` : `<div class="tot">${none}</div>`;
+  const spread = sp ? `<div class="sp">${sp.line > 0 ? "+" : ""}${sp.line} &middot; ${fmt(sp.away)} ${sep} ${fmt(sp.home)}</div>` : "";
+  return `<td class="bk">${ml}${total}${spread}</td>`;
+}
+
+function fairCell(f) {
+  if (!f || !f.ml) return `<td class="fair">${none}</td>`;
+  const total = f.total ? `<div>${pct(f.total.over)} ${sep} ${pct(f.total.under)}</div>` : `<div>${none}</div>`;
+  return `<td class="fair"><div>${pct(f.ml.away)} ${sep} ${pct(f.ml.home)}</div>${total}</td>`;
+}
+
+// EV of every side against the chosen book, fair chance times the book's decimal price minus one
+function evSides(game, bookKey) {
+  const fair = game.fair, b = game.books[bookKey];
+  if (!fair || !b) return null;
+  const out = {};
+  if (b.ml && b.ml.away != null && b.ml.home != null && fair.ml)
+    out.ml = { away: fair.ml.away * b.ml.away - 1, home: fair.ml.home * b.ml.home - 1 };
+  const t = (b.totals || [])[0];
+  if (t && t.line === game.totalLine && fair.total && t.over != null && t.under != null)
+    out.total = { over: fair.total.over * t.over - 1, under: fair.total.under * t.under - 1 };
+  return Object.keys(out).length ? out : null;
+}
+function evCell(ev) {
+  if (!ev) return `<td class="ev">${none}</td>`;
+  const v = p => p == null ? none : `<span class="${p >= 0 ? "up" : "down"}">${p >= 0 ? "+" : ""}${(100 * p).toFixed(1)}%</span>`;
+  const total = ev.total ? `<div>${v(ev.total.over)} ${sep} ${v(ev.total.under)}</div>` : `<div>${none}</div>`;
+  return `<td class="ev"><div>${v(ev.ml ? ev.ml.away : null)} ${sep} ${v(ev.ml ? ev.ml.home : null)}</div>${total}</td>`;
+}
+
+const SIDE_NAMES = { away: "ML away", home: "ML home", over: "Over", under: "Under" };
+function topPlays(lg, bookKey) {
+  const plays = [];
+  for (const game of lg.games) {
+    if (!game.fair) continue;
+    const b = game.books[bookKey];
+    if (!b) continue;
+    // its total counts only at the line the fair chance is for (as in the build's EV); a book
+    // without one has no total plays
+    const t = (b.totals || [])[0], fairTotal = t && t.line === game.totalLine ? game.fair.total : null;
+    const parts = [["away", b.ml && b.ml.away, "ML " + game.away, game.fair.ml],
+                   ["home", b.ml && b.ml.home, "ML " + game.home, game.fair.ml],
+                   ["over", t && t.over, t ? `Over ${t.line}` : "", fairTotal],
+                   ["under", t && t.under, t ? `Under ${t.line}` : "", fairTotal]];
+    for (const [side, price, label, fair] of parts) {
+      const chance = fair && fair[side];
+      if (price != null && chance != null && chance * price - 1 > 0)
+        plays.push({ ev: chance * price - 1, price, chance, label, game });
+    }
+  }
+  return plays.sort((a, b) => b.ev - a.ev).slice(0, 8);
+}
+
+function leagueHtml(lg) {
+  const books = lg.books;
+  const head1 = `<tr><th class="game" rowspan="2">Game</th>` + books.map(b =>
+      `<th class="${b.key === "betano" ? "featured" : ""}${b.key === targetBook ? " valcol" : ""}" title="${esc(b.name)}">${b.icon ? `<img class="bookicon head" src="${b.icon}" alt="${esc(b.name)}">` : esc(b.short)}${b.sharp ? ` <span class="sharp" title="counts toward the fair line, weight ${b.weight}">&bull;</span>` : ""}</th>`).join("")
+      + `<th rowspan="2" title="the books' no-vig chance of each side, weighted: Kalshi and FanDuel 1.1, Pinnacle and DraftKings 1">Fair</th>`
+      + `<th rowspan="2" title="what ${esc((books.find(b => b.key === targetBook) || {}).name || "")} pays against the fair chance">EV vs ${esc((books.find(b => b.key === targetBook) || {}).short || "")}</th></tr>`
+      + `<tr class="sub">${books.map(() => `<th>ML &middot; total</th>`).join("")}</tr>`;
+  const rows = [];
+  let lastDate = "";
+  for (const game of lg.games) {
+    const start = new Date(game.start);
+    const date = start.toLocaleDateString("en-CA", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric" });
+    if (date !== lastDate) { rows.push(`<tr class="date"><td colspan="${books.length + 3}">${date}</td></tr>`); lastDate = date; }
+    const time = start.toLocaleTimeString("en-CA", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
+    const marks = bestMarks(game);
+    rows.push(`<tr><td class="game"><div class="t">${esc(game.away)} @ ${esc(game.home)}</div>`
+        + `<div class="s">${time} ET</div>${game.totalLine ? `<div class="tot">total ${game.totalLine}</div>` : ""}</td>`
+        + books.map(b => cell(game, b.key, marks)).join("") + fairCell(game.fair) + evCell(evSides(game, targetBook)) + `</tr>`);
+  }
+  const errors = Object.entries(lg.errors || {}).map(([k, e]) => `<div class="err">${esc(k)}: ${esc(e)}</div>`).join("");
+  const plays = topPlays(lg, targetBook);
+  const playCards = plays.map(p => `<div class="play"><div class="what"><div class="pick">${esc(p.label)}</div>`
+      + `<div class="where">${esc(p.game.away)} @ ${esc(p.game.home)} &middot; ${esc(lg.name)} &middot; ${fmt(p.price)} vs ${pct(p.chance)} fair</div></div>`
+      + `<div class="evv">+${(100 * p.ev).toFixed(1)}%</div></div>`).join("");
+  const valuePanel = plays.length && targetBook !== "none"
+      ? `<div class="value"><h3>Top value vs ${esc((books.find(b => b.key === targetBook) || {}).short || "")}</h3>`
+        + `<div class="plays">${playCards}</div></div>` : "";
+  return `<section class="league"><h2>${esc(lg.name)}</h2>${errors}`
+      + valuePanel
+      + `<table class="grid"><thead>${head1}</thead><tbody>${rows.join("")}</tbody></table></section>`;
+}
+
+document.getElementById("stamp").textContent = "prices " + D.generated;
+const tabs = document.getElementById("tabs"), bar = document.getElementById("valuebar"), page = document.getElementById("page");
+let shown = D.leagues[0] && D.leagues[0].key;
+for (const lg of D.leagues) {
+  const b = document.createElement("button");
+  b.textContent = lg.name;
+  b.onclick = () => { shown = lg.key; render(); };
+  tabs.appendChild(b);
+}
+const allBooks = [];
+// the sites to find value on (Betano, Mise-o-jeu, Stake): the rest price the fair line or are shown only
+for (const lg of D.leagues) for (const b of lg.books) if (b.target && !allBooks.some(x => x.key === b.key)) allBooks.push(b);
+for (const b of allBooks) {
+  const chip = document.createElement("button");
+  chip.textContent = "Value vs " + (b.icon ? "" : b.short);
+  if (b.icon) {   // a book with a site icon shows it in place of its name
+    const img = document.createElement("img");
+    img.className = "bookicon"; img.src = b.icon; img.alt = b.short; chip.title = "Value vs " + b.name;
+    chip.appendChild(img);
+  }
+  chip.dataset.key = b.key;
+  chip.onclick = () => { targetBook = b.key; render(); };
+  bar.appendChild(chip);
+}
+const hint = document.createElement("span");
+hint.className = "hint";
+hint.textContent = "odds in decimal";
+bar.appendChild(hint);
+function render() {
+  for (const b of tabs.children) {
+    const lg = D.leagues.find(l => l.name === b.textContent);
+    b.classList.toggle("on", lg && lg.key === shown);
+  }
+  for (const c of bar.querySelectorAll("button[data-key]")) c.classList.toggle("on", c.dataset.key === targetBook);
+  const lg = D.leagues.find(l => l.key === shown);
+  page.innerHTML = lg ? leagueHtml(lg) : "<p>no lines fetched yet</p>";
+}
+// A game under way can't be bet: it leaves the page when it starts, however long ago the page was built.
+function dropStarted() {
+  const now = Date.now();
+  let gone = false;
+  for (const lg of D.leagues) {
+    const ahead = lg.games.filter(g => Date.parse(g.start) > now);
+    gone ||= ahead.length !== lg.games.length;
+    lg.games = ahead;
+  }
+  return gone;
+}
+dropStarted();
+if (D.leagues.length) {
+  render();
+  setInterval(() => { if (dropStarted()) render(); }, 30000);
+} else page.innerHTML = "<p>no lines fetched yet</p>";
+</script>
+</body>
+</html>
