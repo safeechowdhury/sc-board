@@ -11,6 +11,11 @@ repo's .env file (never committed):
     FTP_PASSWORD
     FTP_DIR        the folder the site goes in (default public_html)
 
+Or, with SSH_HOST set (and SSH_USER; SSH_DIR, the site's folder from the SSH home; SSH_PORT;
+SSH_KEY, default ~/.ssh/scboard_whc), over SSH: the whole site as one compressed tar stream,
+unpacked on the server into a new folder and swapped in for the old one (swap_script). Seconds
+instead of minutes, and the folder always holds exactly site/. The rest below is the FTP way.
+
 What was sent, and its content hash, is kept in data/cache/uploaded.json, so a run sends only
 new or changed files and deletes the ones site/ no longer has (a player gone from the board).
 Player files go up first and the pages last, so a page never points at a player file that isn't
@@ -22,7 +27,9 @@ import ftplib
 import hashlib
 import json
 import os
+import shlex
 import ssl
+import subprocess
 from pathlib import Path
 
 import certifi
@@ -34,18 +41,21 @@ ENV = store.ROOT / ".env"
 
 
 def settings() -> dict:
-    """FTP_* from the environment, else from .env."""
+    """FTP_* and SSH_* from the environment, else from .env. With SSH_HOST set, uploads go by rsync over SSH."""
     found = {}
     if ENV.exists():
         for line in ENV.read_text().splitlines():
             key, sep, value = line.strip().partition("=")
-            if sep and key.startswith("FTP_"):
+            if sep and key.startswith(("FTP_", "SSH_")):
                 found[key] = value.strip().strip("'\"")
-    found.update({key: value for key, value in os.environ.items() if key.startswith("FTP_")})
-    missing = [key for key in ("FTP_SERVER", "FTP_USERNAME", "FTP_PASSWORD") if not found.get(key)]
+    found.update({key: value for key, value in os.environ.items() if key.startswith(("FTP_", "SSH_"))})
+    needed = ("SSH_HOST", "SSH_USER", "SSH_DIR") if found.get("SSH_HOST") else ("FTP_SERVER", "FTP_USERNAME", "FTP_PASSWORD")
+    missing = [key for key in needed if not found.get(key)]
     if missing:
         raise SystemExit(f"upload: set {', '.join(missing)} in {ENV} or the environment")
     found.setdefault("FTP_DIR", "public_html")
+    found.setdefault("SSH_PORT", "22")
+    found.setdefault("SSH_KEY", str(Path.home() / ".ssh" / "scboard_whc"))
     return found
 
 
@@ -151,6 +161,8 @@ def upload(root: Path | None = None, full: bool = False, clean: bool = False, dr
     dry_run: connect and say what would happen, changing nothing."""
     root = root or site.OUT
     conf = settings()
+    if conf.get("SSH_HOST"):
+        return _ssh_upload(root, conf, dry_run)
     now = _hashes(root)
     sent = {} if full or clean or not SENT.exists() else json.loads(SENT.read_text())
     send, delete = plan(now, sent)
@@ -213,6 +225,58 @@ def upload(root: Path | None = None, full: bool = False, clean: bool = False, dr
     removed = len(delete) + len(extra_files)
     return [f"upload: sent {len(send)} files" + (f", deleted {removed}" if removed else "")
             + (f" and {len(extra_folders)} folders" if extra_folders else "") + f" to {where}"]
+
+
+SWAP = r"""set -e
+dir={dir}; parent=$(dirname "$dir"); name=$(basename "$dir")
+cd "$HOME" && mkdir -p "$parent" && cd "$parent"
+rm -rf ".$name.new" ".$name.old" && mkdir ".$name.new"
+tar xzf - -C ".$name.new"
+if [ -d "$name" ]; then
+  for keep in {keep}; do   # what the host keeps there and the site doesn't make
+    if [ -e "$name/$keep" ] && [ ! -e ".$name.new/$keep" ]; then mv "$name/$keep" ".$name.new/"; fi
+  done
+  mv "$name" ".$name.old"
+fi
+mv ".$name.new" "$name"
+rm -rf ".$name.old"
+echo "$(find "$name" -type f | wc -l) files in $PWD/$name"
+"""
+
+
+def ssh_command(conf: dict) -> list[str]:
+    return ["ssh", "-p", conf["SSH_PORT"], "-i", conf["SSH_KEY"], "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+            "-o", "ConnectTimeout=30", f"{conf['SSH_USER']}@{conf['SSH_HOST']}"]
+
+
+def swap_script(conf: dict) -> str:
+    """The shell the server runs: unpack the site arriving on stdin into a new folder beside the
+    live one, carry over what the host keeps there (KEEP, FTP_KEEP), then swap the two folders.
+    The folder ends up holding exactly site/, as if emptied first, and the old site is up until
+    the instant the new one replaces it."""
+    keep = KEEP | {name.strip() for name in conf.get("FTP_KEEP", "").split(",") if name.strip()}
+    return SWAP.format(dir=shlex.quote(conf["SSH_DIR"].strip("/")), keep=" ".join(shlex.quote(k) for k in sorted(keep)))
+
+
+def _ssh_upload(root: Path, conf: dict, dry_run: bool) -> list[str]:
+    """The whole site in one compressed stream over SSH (tar), unpacked and swapped in on the server."""
+    where = f"{conf['SSH_HOST']}:~/{conf['SSH_DIR'].strip('/')}"
+    if dry_run:
+        done = subprocess.run(ssh_command(conf) + [f"ls -A ~/{shlex.quote(conf['SSH_DIR'].strip('/'))} | head -50"],
+                              capture_output=True, text=True)
+        if done.returncode != 0:
+            raise SystemExit(f"upload: ssh to {conf['SSH_HOST']} failed: {done.stderr.strip()}")
+        now = sum(1 for path in root.rglob("*") if path.is_file() and path.name != ".DS_Store")
+        return [f"upload (dry run): connected to {where}; it would be replaced by site/ ({now} files). It holds now:"] \
+            + [f"    {line}" for line in done.stdout.splitlines()]
+    pack = subprocess.Popen(["tar", "czf", "-", "--exclude=.DS_Store", "-C", str(root), "."],
+                            stdout=subprocess.PIPE, env={**os.environ, "COPYFILE_DISABLE": "1"})   # no macOS ._ files
+    done = subprocess.run(ssh_command(conf) + [f"bash -c {shlex.quote(swap_script(conf))}"],
+                          stdin=pack.stdout, capture_output=True, text=True)
+    pack.stdout.close()
+    if pack.wait() != 0 or done.returncode != 0:
+        raise SystemExit(f"upload: sending the site to {where} failed: {done.stderr.strip()}")
+    return [f"upload: {done.stdout.strip()} ({where})"]
 
 
 def _save(sent: dict) -> None:

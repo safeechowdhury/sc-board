@@ -7,7 +7,7 @@
 #   scripts/autopublish.sh run         one scheduled run now, as launchd would do it
 #
 # Each run is `python -m props publish --upload`: refresh the logs (once a day), build every
-# board, grade (once a day), and send what changed to the host over FTPS (FTP_* in .env).
+# board, grade (once a day), and send the site to the host (over SSH with SSH_* in .env, else FTPS).
 # A run where most books fail (a VPN on, the network down) uploads nothing.
 # A run missed while the Mac sleeps happens when it wakes. Times are this Mac's local time.
 set -euo pipefail
@@ -22,7 +22,7 @@ MINUTE=7
 
 case "${1:-}" in
   install)
-    grep -q '^FTP_SERVER=' "$REPO/.env" 2>/dev/null || { echo "Add FTP_SERVER, FTP_USERNAME and FTP_PASSWORD to $REPO/.env first"; exit 1; }
+    grep -qE '^(SSH_HOST|FTP_SERVER)=' "$REPO/.env" 2>/dev/null || { echo "Add the SSH_* (or FTP_*) upload settings to $REPO/.env first"; exit 1; }
     mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
     {
       echo '<?xml version="1.0" encoding="UTF-8"?>'

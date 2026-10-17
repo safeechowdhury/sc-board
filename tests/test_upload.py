@@ -126,3 +126,34 @@ class BrokenRunTest(unittest.TestCase):
         why = publish.broken({"nhl": {"novig": False, "draftkings": False, "kalshi": True}})
         self.assertIn("2 of 3", why)
         self.assertIn("VPN", why)
+
+
+class SshTest(unittest.TestCase):
+    CONF = {"SSH_HOST": "142.0.0.1", "SSH_USER": "me", "SSH_DIR": "dev.example.ca/scboard/", "SSH_PORT": "27",
+            "SSH_KEY": "/keys/k", "FTP_KEEP": "blog"}
+
+    def test_the_site_is_unpacked_beside_the_live_folder_and_swapped_in(self):
+        script = upload.swap_script(self.CONF)
+        self.assertIn("dir=dev.example.ca/scboard;", script)
+        self.assertIn("for keep in .ftpquota .well-known blog cgi-bin; do", script)
+        self.assertLess(script.index('tar xzf - -C ".$name.new"'), script.index('mv "$name" ".$name.old"'))
+        self.assertEqual(upload.ssh_command(self.CONF)[-1], "me@142.0.0.1")
+        self.assertIn("/keys/k", upload.ssh_command(self.CONF))
+
+    def test_the_swap_works_on_a_real_folder(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as home:
+            live = Path(home) / "dev.example.ca" / "scboard"
+            live.mkdir(parents=True)
+            (live / "stale.html").write_text("old")
+            (live / ".ftpquota").write_text("host's")
+            site = Path(home) / "site"
+            (site / "p").mkdir(parents=True)
+            (site / "index.html").write_text("new")
+            (site / "p" / "1.js").write_text("player")
+            pack = subprocess.run(["tar", "czf", "-", "-C", str(site), "."], capture_output=True, check=True).stdout
+            subprocess.run(["bash", "-c", upload.swap_script(self.CONF)], input=pack, check=True,
+                           capture_output=True, env={"HOME": home, "PATH": "/usr/bin:/bin"})
+            self.assertEqual(sorted(str(p.relative_to(live)) for p in live.rglob("*") if p.is_file()),
+                             [".ftpquota", "index.html", "p/1.js"])
+            self.assertEqual(sorted(p.name for p in live.parent.iterdir()), ["scboard"])   # nothing left beside it
