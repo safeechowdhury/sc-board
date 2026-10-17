@@ -27,6 +27,7 @@ TEMPLATE = Path(__file__).with_name("template.html")
 VIEWER = Path(__file__).with_name("ud.html")
 VIEWER_PAGE = "ud.html"
 HTACCESS = Path(__file__).with_name("htaccess")   # the host's settings: compressed pages, no stale copies
+book_fetches: dict[str, dict[str, bool]] = {}   # league -> book -> whether its fetch worked this run, for publish
 SPORTS_KEPT = 30 * 60   # seconds the viewer's sport menu is used again before it is fetched anew
 
 
@@ -542,6 +543,7 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
     quotes = [(book, {key: price for key, price in prices.items() if key not in dropped}, *rest)
               for book, prices, *rest in quotes]
 
+    book_fetches[league.KEY] = {book.KEY: not failed for book, _, _, _, failed, *_ in quotes}
     standard = Counter(offer["odds"] for row in rows for offer in (row["over"], row["under"])
                        if offer and offer["mult"] == 1 and offer["odds"])
     payload = {
@@ -685,6 +687,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
     for book, props, at, failed, saved, unmapped in fetched_books:
         quotes.append((book, *books.prices(props, rows, getattr(league, "ANYTIME_STATS", ())), at, failed, saved, unmapped))
 
+    book_fetches[league.KEY] = {book.KEY: not failed for book, _, _, _, failed, *_ in quotes}
     # everyone searchable: active in the last two seasons, plus anyone on the board
     on_board = [row["id"] for row in rows if row["id"] is not None]
     recent = index.filter((pl.col("season") >= previous) | pl.col("player_id").is_in(on_board))

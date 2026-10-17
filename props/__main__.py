@@ -7,7 +7,7 @@ import functools
 import http.server
 import webbrowser
 
-from . import gamelines, grade, net, publish, site
+from . import gamelines, grade, net, publish, site, upload
 from .leagues import LEAGUES
 from .store import Store
 
@@ -37,6 +37,8 @@ def main() -> None:
     p = sub.add_parser("publish", help="refresh every board and the lines page at once, then zip the site for upload")
     p.add_argument("--offline", action="store_true", help="reuse the last fetched lines, schedule and rosters")
     p.add_argument("--logs", action="store_true", help="refresh the game logs even if they were already today")
+    p.add_argument("--upload", action="store_true", help="then send what changed to the web host over FTPS (FTP_* in .env)")
+    p.add_argument("--full", action="store_true", help="with --upload: send every file, not just the changed ones")
     p = sub.add_parser("refresh", parents=[league], help="update game logs for the season in progress")
     p.add_argument("--days", type=int, default=3, help="NHL: days to re-read for stat corrections (default 3)")
     p = sub.add_parser("backfill", help="rebuild whole seasons, e.g. backfill nhl 20252026, backfill nfl 2024 2025")
@@ -55,7 +57,9 @@ def main() -> None:
     one = getattr(a, "league", None) if a.cmd != "backfill" else None
     chosen = [LEAGUES[one]] if one else list(LEAGUES.values())
     if a.cmd == "publish":
-        publish.publish(LEAGUES, offline=a.offline, logs=a.logs)
+        if a.full:
+            upload.SENT.unlink(missing_ok=True)
+        publish.publish(LEAGUES, offline=a.offline, logs=a.logs, upload=a.upload)
     elif a.cmd == "refresh":
         refresh(chosen, a.days)
     elif a.cmd == "backfill":

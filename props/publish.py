@@ -19,7 +19,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import gamelines, grade, net, site, store
+from . import gamelines, grade, net, site, store, upload as uploader
 from .slate import slate_date
 
 PAGES_ZIP = store.ROOT / "sc-board-pages.zip"
@@ -128,8 +128,23 @@ def zip_site(root: Path | None = None) -> list[str]:
     return out
 
 
-def publish(leagues: dict, offline: bool = False, logs: bool = False) -> None:
+MOSTLY_FAILED = 0.5   # an upload is skipped when more than this share of the book fetches failed
+
+
+def broken(fetched: dict[str, dict[str, bool]]) -> str | None:
+    """Why this run's boards shouldn't replace the ones online, or None. With most books failing
+    at once it's this machine (a VPN, the network down), not the books: the boards online are better."""
+    tries = [ok for books in fetched.values() for ok in books.values()]
+    failed = tries.count(False)
+    if tries and failed / len(tries) > MOSTLY_FAILED:
+        names = sorted({book for books in fetched.values() for book, ok in books.items() if not ok})
+        return f"{failed} of {len(tries)} book fetches failed ({', '.join(names)}): is a VPN on, or the network down?"
+    return None
+
+
+def publish(leagues: dict, offline: bool = False, logs: bool = False, upload: bool = False) -> None:
     started = time.monotonic()
+    site.book_fetches.clear()
     if not offline and refresh_logs(leagues, force=logs):
         # last night's results are in: grade the prices kept so far (data/grades.json, not shown on the site)
         try:
@@ -143,3 +158,9 @@ def publish(leagues: dict, offline: bool = False, logs: bool = False) -> None:
         print(f"publish: {message}")
     print(f"publish: built in {built - started:.1f}s, zipped in {time.monotonic() - built:.1f}s; requests: "
           + ", ".join(f"{name} {n}" for name, n in sorted(net.asked.items())))
+    if upload:
+        why = None if offline else broken(site.book_fetches)
+        if why:
+            raise SystemExit(f"publish: not uploading, {why}")
+        for message in uploader.upload():
+            print(f"publish: {message}")

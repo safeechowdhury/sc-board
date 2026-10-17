@@ -12,7 +12,7 @@ That refreshes the game logs, fetches the current Underdog lines, writes `site/i
 | Command | What it does |
 |---|---|
 | `python -m props` | refresh + build + open |
-| `python -m props publish [--logs] [--offline]` | refresh everything for the site in one go: the game logs (once a slate day; `--logs` again), every board and the lines page at once, then the upload zips (see Publishing) |
+| `python -m props publish [--logs] [--offline] [--upload [--full]]` | refresh everything for the site in one go: the game logs (once a slate day; `--logs` again), every board and the lines page at once, then the upload zips, and with `--upload` send what changed to the host (see Publishing) |
 | `python -m props refresh [--league nhl]` | update the season in progress |
 | `python -m props build [--league nfl] [--offline] [--open]` | fetch Underdog lines, sportsbook prices, schedules and rosters, write `site/`. `--offline` reuses the last fetch, unless it was made on an earlier slate |
 | `python -m props lines [--league nhl] [--offline]` | fetch moneylines, totals and spreads for the slate's games and write `site/lines.html`, a game-lines page of its own |
@@ -114,7 +114,9 @@ Each publish (not `--offline`, whose prices aren't new) also keeps the boards' p
 
 The boards and the lines page drop a game when it starts, both at the build and in the open page (every 30 seconds), so a page uploaded before the slate stays correct through it.
 
-`.github/workflows/publish.yml` runs the tests, refreshes the logs, builds the boards and uploads `site/` to the whc.ca hosting account over FTPS every hour from late morning to the late games, plus once at 5 AM Eastern. Only files that changed are uploaded. To turn it on, add the repository secrets `FTP_SERVER`, `FTP_USERNAME` and `FTP_PASSWORD` (**Settings → Secrets and variables → Actions**). It uploads to `public_html/`; set the variable `FTP_DIR` for another folder (it must end in `/`, and is `./` for an FTP account already limited to the site's folder). Whether Pinnacle, FanDuel, DraftKings, Kambi, Novig, Mise-o-jeu and Bovada answer GitHub's runners hasn't been tested (Mise-o-jeu is a Québec site and may answer only Canadian addresses); if one doesn't, the build log says so and the hosted board shows no prices from it.
+**Publishing automatically.** `python -m props publish --upload` does all of the above and then sends what changed to the whc.ca account over FTPS (`props/upload.py`): only new or changed files, player files first and pages last, each written under a temporary name and renamed into place so a visitor never gets half a page; files `site/` no longer has are deleted. Put `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` and optionally `FTP_DIR` (default `public_html`) in `.env`, which is never committed. `--full` sends every file again. A run where more than half the book fetches failed uploads nothing (that is a VPN or the network, not the books), so the site keeps its last good boards. Every build also writes `site/.htaccess`, which has the host send the pages compressed and never serve a stale copy.
+
+`scripts/autopublish.sh install` runs it on this Mac on a schedule (launchd): 5:07 AM for last night's results, then hourly at :07 from 11:07 AM to 1:07 AM, local time. A run missed while the Mac sleeps happens when it wakes. `status` shows whether it's on and the end of its log (`~/Library/Logs/sc-board-publish.log`), `uninstall` turns it off. It runs here rather than on GitHub because the books refuse cloud servers the way they refuse a VPN, and the host's rules don't allow building the site there. `.github/workflows/tests.yml` only runs the tests on each push.
 
 ## Grading
 

@@ -1,0 +1,27 @@
+name: Tests
+
+# Publishing runs on the Mac (scripts/autopublish.sh): the books refuse GitHub's servers
+# the way they refuse a VPN, so a board built here would be missing most of its prices.
+# This only checks that every push still passes the tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m unittest discover -s tests -t .
