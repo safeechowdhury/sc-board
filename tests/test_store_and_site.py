@@ -474,13 +474,6 @@ class NflBuildTest(TempStore):
         self.assertEqual(data["standardOdds"], 1.87)
         self.assertEqual(data["props"][0], ["pass_yds", "Pass Yards", "PASS YDS", "Pass Yds"])
 
-    def test_page_carries_every_leagues_underdog_settings_for_refresh(self):
-        config = self.build(league=nfl)["underdog"]
-        self.assertEqual(set(config), {"nhl", "nfl", "nba", "mlb", "cfb", "soccer"})
-        self.assertIn("sport_id=NHL", config["nhl"]["url"])
-        self.assertEqual((config["nfl"]["sport"], config["nfl"]["stats"]["receiving_yds"], config["nfl"]["teams"]["LA"]),
-                         ("NFL", "rec_yds", "LAR"))
-
     def test_every_tab_has_a_short_name(self):
         for league in LEAGUES.values():
             self.assertLessEqual(set(league.PROPS), set(league.TABS), league.NAME)
@@ -549,7 +542,6 @@ class NflBuildTest(TempStore):
         data = self.build(league=nfl)
         posted = [(row["stat"], row["line"]) for row in data["rows"] if row["ud"]]
         self.assertEqual(posted, [("two_tds", 1.5)])
-        self.assertEqual(data["underdog"]["nfl"]["fixed"], {"two_tds": ["rush_rec_tds", 1.5]})
 
 
     def test_viewer_page_lists_underdogs_sports_and_each_league_links_its_players(self):

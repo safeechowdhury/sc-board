@@ -29,19 +29,19 @@ SIDES = {"higher": "over", "lower": "under"}
 _SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
 _NICKNAME = re.compile(r"\((.+?)\)")
 # first names the sources swap that neither begins nor ends the other (the NHL and FanDuel say Tommy Novak,
-# Underdog, Kambi and Mise say Thomas); mirrored as GIVEN_NAMES in template.html
+# Underdog, Kambi and Mise say Thomas)
 _GIVEN = {"tommy": "thomas", "tom": "thomas"}
 
 
 def fixed_stat(league, stat: str, line: float) -> str:
     """The stat a prop belongs to: a column at the line of one of the league's FIXED_LINES
-    (rush + rec TDs at 1.5) is that stat (2+ TDs). Mirrored as fixedStat in template.html."""
+    (rush + rec TDs at 1.5) is that stat (2+ TDs)."""
     return next((key for key, (column, at) in getattr(league, "FIXED_LINES", {}).items()
                  if column == stat and at == line), stat)
 
 
 def request_url(sport: str) -> str:
-    """The full lines URL for a sport. The board's Refresh button calls it straight from the browser."""
+    """The full lines URL for a sport. The lines viewer (ud.html) calls it straight from the browser."""
     return f"{URL}?{urlencode({**PARAMS, 'sport_id': sport})}"
 
 
@@ -77,7 +77,7 @@ def _offer(option: dict) -> dict:
 
 def matchup(title: str) -> tuple[str, str] | None:
     """A game's (away, home) codes from its title: "PSU @ MICH", or soccer's home team first,
-    "ROM vs RMA". Mirrored as matchupOf in template.html."""
+    "ROM vs RMA"."""
     if " @ " in title:
         away, home = title.split(" @ ", 1)
         return away, home

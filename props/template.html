@@ -85,8 +85,6 @@ button { cursor: pointer; }
 .iconbtn:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 .iconbtn:disabled { opacity: .6; cursor: default; }
 @media (prefers-reduced-motion: no-preference) {
-  .iconbtn.busy svg { animation: spin .9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 }
 .ghost { height: 32px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 8px; background: none; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
 .ghost:hover { border-color: var(--ink-3); color: var(--ink); }
@@ -443,7 +441,6 @@ svg { display: block; }
   </div>
   <div class="top-end">
     <p class="status" id="status"></p>
-    <button class="iconbtn" id="refresh" type="button" title="Refresh Underdog lines for every league" aria-label="Refresh Underdog lines for every league"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg></button>
     <button class="iconbtn" id="theme" type="button"></button>
   </div>
 </header>
@@ -1237,18 +1234,19 @@ function renderNav() {
   $("#leagues").innerHTML = D.nav.map(([name, href]) =>
     `<a href="${esc(href)}"${name === D.name ? ` aria-current="page"` : ""}>${esc(name)}</a>`).join("");
 }
+// "Last updated @ 3:07 PM": when this board was built, in the visitor's time; with the date once it's an older day's
+const updatedFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+const updatedDayFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
 function renderStatus() {
-  const L = D.lines, when = L.fetched ? new Date(L.fetched) : null;
-  const fetched = when ? stampFmt.format(when) : null;
-  const status = $("#status");
-  status.innerHTML = when
-    ? `<span class="wide">Lines updated </span>${esc((slateDate(L.fetched) === D.date ? timeFmt : stampFmt).format(when))}`
-    : `No <span class="wide">Underdog </span>lines yet`;
-  // one time for the books, the oldest of them; each book's own is in the tooltip
+  const L = D.lines, fetched = L.fetched ? stampFmt.format(new Date(L.fetched)) : null;
+  const built = new Date(D.generated), status = $("#status");
+  const today = built.toDateString() === new Date().toDateString();
+  status.textContent = `Last updated @ ${(today ? updatedFmt : updatedDayFmt).format(built)}`;
+  // each source's own time is in the tooltip
   const stamp = iso => (slateDate(iso) === D.date ? timeFmt : stampFmt).format(new Date(iso));
   const priced = D.books.filter(b => b.fetched).sort((x, y) => x.fetched.localeCompare(y.fetched));
-  if (priced.length) status.innerHTML += `<span class="wide pin"> &middot; Prices ${esc(stamp(priced[0].fetched))}</span>`;
-  status.title = [...(D.lastGame ? [`Game logs through ${dayLabel(D.lastGame)}`] : []), ...priced.map(b => `${b.name} prices ${stamp(b.fetched)}`)].join("\n");
+  status.title = [...(L.fetched ? [`Underdog lines ${stamp(L.fetched)}`] : []), ...priced.map(b => `${b.name} prices ${stamp(b.fetched)}`),
+                  ...(D.lastGame ? [`Game logs through ${dayLabel(D.lastGame)}`] : [])].join("\n");
   $("#notice").innerHTML = L.error
     ? `<p class="notice"><b>Couldn't reach Underdog.</b> ${fetched ? `Showing the lines from ${esc(fetched)}.` : "There are no saved lines to show."} <span class="meta">${esc(L.error)}</span></p>`
     : "";
@@ -1631,174 +1629,6 @@ addEventListener("resize", () => {
   resizeTimer = setTimeout(() => { if (games) renderPlayer(); }, 150);
 });
 
-/* ---------- refresh Underdog lines in the browser ---------- */
-// Underdog's API allows cross-origin requests, so the page can fetch lines itself: no server needed.
-// Hit rates carry over for lines that haven't moved; a moved or new line is recomputed from the
-// player's game log file, with the same rules the build uses.
-const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv"]);
-const GIVEN_NAMES = { tommy: "thomas", tom: "thomas" };   // mirrors _GIVEN in underdog.py
-const normName = s => {
-  const parts = fold(s || "").replace(/\./g, "").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w && !NAME_SUFFIXES.has(w));
-  if (parts.length > 1) parts[0] = GIVEN_NAMES[parts[0]] || parts[0];
-  return parts.join(" ");
-};
-
-// A column at one of the league's set lines is that line's own stat (rush + rec TDs at 1.5 is 2+ TDs), as underdog.fixed_stat
-const fixedStat = (U, stat, line) => Object.entries(U.fixed || {}).find(([, [column, at]]) => column === stat && at === line)?.[0] || stat;
-
-// A game's [away, home] codes from its title: "PSU @ MICH", or soccer's home team first, "ROM vs RMA" (underdog.matchup)
-const matchupOf = title => title.includes(" @ ") ? title.split(" @ ") : title.includes(" vs ") ? title.split(" vs ").reverse() : null;
-
-function parseLines(payload, U) {
-  const byId = list => new Map((list || []).map(x => [x.id, x]));
-  const players = byId(payload.players), appearances = byId(payload.appearances), matches = byId(payload.games);
-  const team = code => { code = code.trim().toUpperCase(); return U.teams[code] || code; };
-  const lines = [];
-  for (const ln of payload.over_under_lines || []) {
-    if (ln.status !== "active" || (ln.line_type || "balanced") !== "balanced") continue;
-    const stat = ln.over_under?.appearance_stat || {}, app = appearances.get(stat.appearance_id) || {};
-    const player = players.get(app.player_id), match = matches.get(app.match_id);
-    const teams = matchupOf(match?.title || "");
-    if (!player || !teams || player.sport_id !== U.sport || !(stat.stat in U.stats)) continue;
-    const offers = {};
-    for (const o of ln.options || []) {
-      const side = { higher: "over", lower: "under" }[o.choice];
-      if (side && o.status === "active") offers[side] = { odds: o.odds?.fantasy?.decimal ? +o.odds.fantasy.decimal : null, mult: +(o.payout_multiplier || 1) };
-    }
-    if (!offers.over && !offers.under) continue;
-    const [away, home] = teams.map(team), atHome = app.team_id === match.home_team_id;
-    lines.push({
-      name: `${player.first_name || ""} ${player.last_name || ""}`.trim(), position: player.position_name,
-      team: atHome ? home : away, opp: atHome ? away : home, home: atHome, away, homeTeam: home,
-      stat: fixedStat(U, U.stats[stat.stat], +ln.stat_value), line: +ln.stat_value, over: offers.over || null, under: offers.under || null,
-      start: match.scheduled_at, title: match.full_team_names_title || match.title,
-    });
-  }
-  return lines.filter(l => slateDate(l.start) >= D.date);
-}
-
-// Hit rates for one line from a player's log (columns, newest first), with playoff games only when asked.
-function lineStats(G, stat, line, opp, playoffs) {
-  const idx = (G[stat] || []).map((v, i) => (v == null || (!playoffs && G.game_type[i] === 3) ? -1 : i)).filter(i => i >= 0);
-  const vals = idx.map(i => G[stat][i]);
-  const tallyOf = v => [v.filter(x => x > line).length, v.filter(x => x < line).length, v.length];
-  const where = test => tallyOf(idx.filter(test).map(i => G[stat][i]));
-  return {
-    l5: tallyOf(vals.slice(0, 5)), l10: tallyOf(vals.slice(0, 10)), l20: tallyOf(vals.slice(0, 20)),
-    season: where(i => G.season[i] === D.season), h2h: where(i => G.opponent[i] === opp),
-    avg: vals.length ? Math.round(mean(vals.slice(0, 10)) * 100) / 100 : null,
-    last: vals.slice(0, 10).reverse(),
-  };
-}
-
-// A matchup's words that can tell it from others, as matchups.words: "AS Roma vs Real Madrid" -> roma, madrid
-const GENERIC = new Set(["ac", "afc", "and", "as", "at", "athletic", "atletico", "bc", "ca", "calcio", "cd", "central", "cf", "city", "club", "de", "del", "east", "eastern", "fc", "fk", "football", "la", "le", "new", "north", "northern", "of", "olympique", "rc", "real", "saint", "san", "sc", "sk", "south", "southern", "sporting", "ssc", "st", "stade", "state", "sv", "tech", "the", "ud", "united", "university", "us", "vfb", "vfl", "vs", "west", "western"]);
-const teamWords = text => new Set(fold(text || "").split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !GENERIC.has(w)));
-// The board's game a line is for: Underdog's own, or the listed game it is (kickoff within 20 minutes, a team's word shared)
-function gameFor(ln) {
-  const key = `${slateDate(ln.start)}|${ln.away}@${ln.homeTeam}`;
-  if (D.games.some(g => g.key === key)) return key;
-  const mine = teamWords(ln.title), when = Date.parse(ln.start);
-  const listed = D.games.filter(g => Math.abs(Date.parse(g.start) - when) <= 20 * 60000
-    && [...teamWords(g.away + " " + g.home + " " + (g.names || ""))].some(w => mine.has(w)));
-  return listed.length === 1 ? listed[0].key : key;
-}
-
-async function applyLines(lines, fetched, progress) {
-  const keyOf = (id, name, stat) => (id ?? name) + "|" + stat;
-  const current = new Map(D.rows.map(r => [keyOf(r.id, r.name, r.stat), r]));
-  // who is who: the names Underdog used last time, then exact names from the player index
-  const known = new Map(), indexed = new Map(), rest = new Map();
-  for (const r of D.rows) {
-    if (r.ud && r.id != null) known.set(normName(r.name) + "|" + r.team, r.id);
-    if (r.rest !== undefined) rest.set(r.team + "|" + r.game, r.rest);
-  }
-  for (const [id, name, team] of D.players) (indexed.get(normName(name)) || indexed.set(normName(name), []).get(normName(name))).push({ id, team });
-  const findId = (name, team) => {
-    const same = indexed.get(normName(name)) || [];
-    return known.get(normName(name) + "|" + team) ?? (same.find(p => p.team === team) || same[0])?.id ?? null;
-  };
-  const positionOf = name => Object.keys(D.positions).find(code => code === name || D.positions[code][0] === name) || "";
-
-  const rows = [], taken = new Set(), stale = [];
-  for (const ln of lines) {
-    const id = findId(ln.name, ln.team), key = keyOf(id, ln.name, ln.stat), before = current.get(key);
-    const pos = PLAYERS.get(String(id))?.pos || positionOf(ln.position);
-    const game = gameFor(ln);
-    const row = {
-      id, name: ln.name, team: ln.team, opp: ln.opp, home: ln.home, pos, start: ln.start, game,
-      stat: ln.stat, line: ln.line, ud: true, over: ln.over, under: ln.under,
-      dvp: D.dvp[ln.stat]?.[groupOf(pos)]?.[ln.opp]?.[0] ?? null,
-    };
-    if (D.rest) row.rest = rest.get(ln.team + "|" + game) ?? null;
-    if (before && before.line === ln.line && before.opp === ln.opp) {
-      for (const k of ["l5", "l10", "l20", "season", "h2h", "avg", "last", "po"]) if (k in before) row[k] = before[k];
-    } else if (id != null) stale.push(row);
-    rows.push(row); taken.add(key);
-  }
-  for (const r of D.rows) if (!r.ud && !taken.has(keyOf(r.id, r.name, r.stat))) rows.push(r);   // typical lines Underdog still doesn't cover
-
-  let done = 0;
-  await Promise.all(stale.map(row => loadLog(String(row.id)).then(G => {
-    Object.assign(row, lineStats(G, row.stat, row.line, row.opp, false), { po: lineStats(G, row.stat, row.line, row.opp, true) });
-    const lastTen = playoffs => G.date.map((d, i) => [d, G.opponent[i]]).filter((_, i) => playoffs || G.game_type[i] !== 3).slice(0, 10).reverse();
-    D.recent[row.id] ??= lastTen(false);
-    D.recentPo[row.id] ??= lastTen(true);
-  }, () => { /* no game log: the row shows without history */ }).finally(() => progress?.(++done, stale.length))));
-
-  const counts = new Map(), standard = new Map();
-  for (const r of rows) {
-    if (!r.ud) continue;
-    counts.set(r.game, (counts.get(r.game) || 0) + 1);
-    for (const offer of [r.over, r.under]) if (offer?.mult === 1 && offer.odds) standard.set(offer.odds, (standard.get(offer.odds) || 0) + 1);
-    if (!D.games.some(g => g.key === r.game)) {
-      const [date, matchup] = r.game.split("|"), [away, home] = matchup.split("@");
-      D.games.push({ key: r.game, date, away, home, start: r.start, state: "upcoming", lines: 0, comp: null });
-    }
-  }
-  for (const g of D.games) g.lines = counts.get(g.key) || 0;
-  D.games.sort((a, b) => a.start.localeCompare(b.start));
-  D.rows = rows;
-  dropStarted();
-  D.standardOdds = [...standard].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  D.lines = { fetched, error: null };
-  renderStatus(); renderTabs(); renderGames(); renderBoard();
-  if (view && games) renderPlayer();
-}
-
-const refreshButton = $("#refresh");
-refreshButton.addEventListener("click", async () => {
-  refreshButton.disabled = true; refreshButton.classList.add("busy");
-  $("#status").textContent = "Fetching Underdog lines…";
-  try {
-    // Every league at once. This page's lines are applied now; the others are saved, and
-    // each league's page picks its own up when it is next opened.
-    const leagues = Object.keys(D.underdog), fetched = new Date().toISOString();
-    const answers = await Promise.allSettled(leagues.map(async key => {
-      const response = await fetch(D.underdog[key].url, { headers: { Accept: "application/json" } });
-      if (!response.ok) throw new Error(`Underdog answered ${response.status}`);
-      return parseLines(await response.json(), D.underdog[key]);
-    }));
-    answers.forEach((answer, i) => {
-      if (answer.status === "fulfilled") prefs.set("lines." + leagues[i], { fetched, date: D.date, lines: answer.value });
-    });
-    const mine = answers[leagues.indexOf(D.league)];
-    if (mine.status === "rejected") throw mine.reason;
-    await applyLines(mine.value, fetched, (n, total) => { $("#status").textContent = `Reading game logs ${n}/${total}`; });
-  } catch (error) {
-    D.lines = { ...D.lines, error: error.message };
-    renderStatus();
-  } finally {
-    refreshButton.disabled = false; refreshButton.classList.remove("busy");
-  }
-});
-
-// Lines refreshed earlier today outlive a reload, as long as they are newer than the build's.
-function restoreLines() {
-  const saved = prefs.get("lines." + D.league, null);
-  if (saved && saved.date === D.date && Date.parse(saved.fetched) > (D.lines.fetched ? Date.parse(D.lines.fetched) : 0)) applyLines(saved.lines, saved.fetched);
-}
-
 /* ---------- start ---------- */
 dropStarted();
 setInterval(() => { if (dropStarted()) { renderGames(); renderBoard(); } }, 30000);
@@ -1806,14 +1636,7 @@ if (D.oddsOnly) {   // no games to count: Underdog's lines and the market's
   $("#playoffs").style.display = "none";   // "Underdog lines only" hides the market's lines
   q.placeholder = $("label[for=q]").textContent = "Filter players";
 }
-applyHidden(); renderSettings(); renderNav(); renderStatus(); renderTabs(); renderGames(); renderBoard(); route(); restoreLines();
-// Lines from an earlier slate (the build ran before Underdog posted today's, or reused a stale copy)
-// are of no use on today's board: fetch today's as the Refresh button would.
-{
-  const times = [D.lines.fetched, prefs.get("lines." + D.league, null)?.fetched].filter(Boolean);
-  const latest = times.length ? new Date(Math.max(...times.map(t => Date.parse(t)))).toISOString() : null;
-  if (!latest || slateDate(latest) < D.date) refreshButton.click();
-}
+applyHidden(); renderSettings(); renderNav(); renderStatus(); renderTabs(); renderGames(); renderBoard(); route();
 })();
 </script>
 </body>

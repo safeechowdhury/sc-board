@@ -413,14 +413,6 @@ def _fair_payload(keys: set[str]) -> dict:
             "estimate": [key for key in books.ESTIMATE if key in keys]}
 
 
-def _underdog_payload() -> dict:
-    """What the Refresh button needs to fetch and read Underdog's lines in the browser. Every
-    league is here because one click refreshes them all, whichever page it's on."""
-    return {other.KEY: {"url": underdog.request_url(other.UNDERDOG_SPORT), "sport": other.UNDERDOG_SPORT,
-                        "stats": other.UNDERDOG_STATS, "fixed": getattr(other, "FIXED_LINES", {}),
-                        "teams": other.TEAM_ALIASES} for other in LEAGUES.values()}
-
-
 def _report(say, quotes: list) -> None:
     for book, prices, missed, at, failed, saved, unmapped in quotes:
         say(f"{book.NAME}: {len(prices)} prices on the board"
@@ -560,7 +552,6 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
         "lines": {"fetched": fetched.isoformat(timespec="minutes") if fetched else None, "error": error},
         "fair": _fair_payload({book.KEY for book in carried}),
         "books": _books_payload(quotes),
-        "underdog": _underdog_payload(),
     }
     _out()
     out = OUT / league.PAGE
@@ -737,7 +728,6 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
         },
         "fair": _fair_payload({book.KEY for book in books.BOOKS}),
         "books": _books_payload(quotes),
-        "underdog": _underdog_payload(),
     }
 
     _out()
