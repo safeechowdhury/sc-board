@@ -33,8 +33,15 @@ def _dumps(obj) -> str:
     return json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
 
 
-def _fetch_cached(name: str, fetch, offline: bool):
+# what a fetch or a parse can raise on an answer that isn't what we expect: reported, never fatal
+FAILED = (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError, IndexError, OSError)
+
+
+def _fetch_cached(name: str, fetch, offline: bool, check=None):
     """(data, fetched_at, error). A failed fetch falls back to the last good copy.
+
+    check(data), if given, must not raise for the answer to count: an answer the parser can't
+    read is a failed fetch, so it never replaces the last good copy.
 
     A copy saved on an earlier slate is never used: its lines and prices are for games
     already played, and a book's would land on today's rows by player and stat. It is
@@ -46,16 +53,37 @@ def _fetch_cached(name: str, fetch, offline: bool):
     if not offline or stale:
         try:
             data = fetch()
+            if check:
+                try:
+                    check(data)
+                except FAILED as e:
+                    raise ValueError(f"answer could not be read ({type(e).__name__}: {e})") from e
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(data))
+            part = path.with_suffix(f".{threading.get_ident()}.part")
+            part.write_text(json.dumps(data))
+            part.replace(path)   # never a half-written copy, even if the run is stopped mid-write
             return data, dt.datetime.now(ET), None
-        except (httpx.HTTPError, ValueError) as e:
+        except FAILED as e:
             error = f"{type(e).__name__}: {e}"
     if stale:
         return None, None, f"{error}; the saved copy is from the {slate_date(saved)} slate, so it was not used"
     if saved:
-        return json.loads(path.read_text()), saved, error
+        try:
+            return json.loads(path.read_text()), saved, error
+        except (OSError, ValueError) as e:
+            return None, None, f"{error or 'offline'}; the saved copy could not be read ({e})"
     return None, None, error or "no cached copy"
+
+
+def _parse(book, answer, league) -> tuple[list[dict], Counter, str | None]:
+    """book.parse, with an answer it can't read reported as the book's error instead of stopping the build."""
+    if not answer:
+        return [], Counter(), None
+    try:
+        props, unmapped = book.parse(answer, league)
+        return props, unmapped, None
+    except FAILED as e:
+        return [], Counter(), f"its answer could not be read ({type(e).__name__}: {e})"
 
 
 def _slate_date(start: str) -> dt.date:
@@ -405,8 +433,10 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
         print(f"build {league.KEY}: {message}")
 
     now, today = _utcnow(), slate_date()
-    raw, fetched, error = _fetch_cached(f"{league.KEY}-underdog", lambda: underdog.fetch(league.UNDERDOG_SPORT), offline)
-    lines, skipped = underdog.parse(raw, league) if raw else ([], Counter())
+    raw, fetched, error = _fetch_cached(f"{league.KEY}-underdog", lambda: underdog.fetch(league.UNDERDOG_SPORT), offline,
+                                        check=lambda raw: underdog.parse(raw, league))
+    lines, skipped, parse_error = _parse(underdog, raw, league)
+    error, raw = ("; ".join(filter(None, [error, parse_error])), None) if parse_error else (error, raw)
     past = len(lines)
     lines = [line for line in lines if _slate_date(line["start"]) >= today and not _started(line["start"], now)]
     past -= len(lines)
@@ -432,7 +462,8 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
                 board = nearby if getattr(book, "PER_GAME", False) else every
                 last = _last_start(near if board is nearby else games, now)
                 return books.fetch(book, board, **({"until": last} if getattr(book, "BOARD_GAMES_ONLY", False) else {}))
-            asking = {book: pool.submit(_fetch_cached, f"{league.KEY}-{book.KEY}", lambda book=book: ask(book), offline)
+            asking = {book: pool.submit(_fetch_cached, f"{league.KEY}-{book.KEY}", lambda book=book: ask(book), offline,
+                                        lambda answer, book=book: book.parse(answer, league))
                       for book in carried}
     rows = [{"id": None, "name": line["player"], "team": line["team"], "opp": line["opponent"], "home": line["home"],
              "pos": line["position"] or "", "start": line["start"], "game": line["game"], "stat": line["stat"],
@@ -440,7 +471,9 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
     answers, partial = [], []
     for book in carried:
         answer, at, failed = asking[book].result() if book in asking else (None, None, None)
-        props, unmapped = book.parse(answer, league) if answer else ([], Counter())
+        props, unmapped, unreadable = _parse(book, answer, league)
+        failed = "; ".join(filter(None, [failed, unreadable])) or None
+        answer = None if unreadable else answer
         partial += [f"{book.NAME} {message}" for message in (answer or {}).get("errors", [])]
         answers.append((book, books.with_fixed(props, league), at, failed, answer is not None, unmapped))
     # a row at the market's line for every player and stat two books price that Underdog doesn't
@@ -529,10 +562,12 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
     # every source at once: the books and Underdog don't wait on the schedule or on each other
     # (net.LIMITS keeps each site to its own pace however many leagues are building)
     pool = ThreadPoolExecutor(max_workers=len(books.BOOKS) + 2)
-    asking = {book: pool.submit(_fetch_cached, f"{league.KEY}-{book.KEY}", lambda book=book: book.fetch(league), offline)
+    readable = lambda book: lambda answer: book.parse(answer, league)   # an answer is kept only if it parses
+    asking = {book: pool.submit(_fetch_cached, f"{league.KEY}-{book.KEY}", lambda book=book: book.fetch(league), offline,
+                                readable(book))
               for book in books.BOOKS if not getattr(book, "BOARD_GAMES_ONLY", False)}
     asking_underdog = pool.submit(_fetch_cached, f"{league.KEY}-underdog",
-                                  lambda: underdog.fetch(league.UNDERDOG_SPORT), offline)
+                                  lambda: underdog.fetch(league.UNDERDOG_SPORT), offline, readable(underdog))
     viewer_sports = pool.submit(_sports_list, offline)   # the viewer's list: the biggest single answer, so asked first
 
     # the schedule from the clock's slate, which says whether last night's games are all final
@@ -550,7 +585,8 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
     for book in books.BOOKS:
         if book not in asking:
             asking[book] = pool.submit(_fetch_cached, f"{league.KEY}-{book.KEY}",
-                                       lambda book=book: _board_games(book, league, slate_last, board_last), offline)
+                                       lambda book=book: _board_games(book, league, slate_last, board_last), offline,
+                                       readable(book))
     pool.shutdown(wait=False)
 
     try:
@@ -562,7 +598,8 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
         index = _player_index(league, df)
 
         raw, fetched, error = asking_underdog.result()
-        lines, skipped = underdog.parse(raw, league) if raw else ([], Counter())
+        lines, skipped, parse_error = _parse(underdog, raw, league)
+        error, raw = ("; ".join(filter(None, [error, parse_error])), None) if parse_error else (error, raw)
         past = len(lines)
         lines = [line for line in lines if _slate_date(line["start"]) >= today and not _started(line["start"], now)]
         past -= len(lines)
@@ -583,7 +620,9 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
     fetched_books = []   # per book: (book, props, fetched at, error, saved copy?, unmapped stats)
     for book in books.BOOKS:
         answer, at, failed = asking[book].result()
-        props, unmapped = book.parse(answer, league) if answer else ([], Counter())
+        props, unmapped, unreadable = _parse(book, answer, league)
+        failed = "; ".join(filter(None, [failed, unreadable])) or None
+        answer = None if unreadable else answer
         fetched_books.append((book, books.with_fixed(props, league), at, failed, answer is not None, unmapped))
     priced = {(underdog.norm_name(prop["player"]), prop["stat"])
               for _, props, *_ in fetched_books for prop in props if prop["stat"] in fixed}

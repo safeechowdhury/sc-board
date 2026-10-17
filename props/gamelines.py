@@ -876,7 +876,8 @@ def build(leagues=None, offline: bool = False) -> Path:
     with ThreadPoolExecutor(max_workers=len(BOOKS) * max(len(leagues), 1)) as pool:
         asked = {(league.KEY, book["key"]): pool.submit(
                      board._fetch_cached, f"{league.KEY}-lines-{book['key']}",
-                     lambda book=book, league=league: book["fetch"](league, now), offline)
+                     lambda book=book, league=league: book["fetch"](league, now), offline,
+                     lambda answer, book=book, league=league: book["parse"](answer, league, now))
                  for league in leagues.values() for book in BOOKS}
         answers = {key: future.result() for key, future in asked.items()}
     for league in leagues.values():

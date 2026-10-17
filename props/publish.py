@@ -14,6 +14,7 @@ import hashlib
 import json
 import shutil
 import time
+import traceback
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -52,10 +53,20 @@ def build_all(leagues: dict, offline: bool = False, lines: bool = True, record: 
     clock and sharing answers. The boards' pages come first, in the leagues' order. record: keep
     each board's prices in its snapshots."""
     with net.run(), ThreadPoolExecutor(max_workers=len(leagues) + 1) as pool:
-        jobs = [pool.submit(site.build, league, offline, record) for league in leagues.values()]
+        jobs = [(league.KEY, pool.submit(site.build, league, offline, record)) for league in leagues.values()]
         if lines:
-            jobs.append(pool.submit(gamelines.build, leagues, offline))
-        return [job.result() for job in jobs]
+            jobs.append(("lines page", pool.submit(gamelines.build, leagues, offline)))
+        pages, failed = [], []
+        for name, job in jobs:   # one page failing leaves the others (and the upload) standing
+            try:
+                pages.append(job.result())
+            except (Exception, SystemExit) as e:
+                failed.append(name)
+                print(f"build {name}: FAILED, its page was not updated: {type(e).__name__}: {e}")
+                traceback.print_exception(e)
+    if failed and not pages:
+        raise SystemExit(f"every page failed to build: {', '.join(failed)}")
+    return pages
 
 
 def _files(root: Path) -> list[Path]:

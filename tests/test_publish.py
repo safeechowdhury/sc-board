@@ -79,3 +79,22 @@ class LogsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BuildAllTest(unittest.TestCase):
+    def test_one_league_failing_leaves_the_others_built(self):
+        from props import publish, site
+
+        class League:
+            def __init__(self, key):
+                self.KEY = key
+
+        def build(league, offline, record):
+            if league.KEY == "bad":
+                raise KeyError("renamed")
+            return Path(f"{league.KEY}.html")
+
+        with mock.patch.object(site, "build", build), mock.patch("builtins.print"), \
+                mock.patch("traceback.print_exception"):
+            pages = publish.build_all({"good": League("good"), "bad": League("bad")}, lines=False)
+        self.assertEqual(pages, [Path("good.html")])

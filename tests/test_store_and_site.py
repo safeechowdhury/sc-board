@@ -338,6 +338,25 @@ class BuildTest(TempStore):
         self.assertIn("2026-10-01 slate", data["lines"]["error"])
         self.assertEqual(data["books"][0]["prices"], {})      # yesterday's prices don't land on today's rows
 
+    def test_an_answer_a_book_cant_read_is_reported_and_never_replaces_the_good_copy(self):
+        self.novig = {"markets": [{"type": "SHOTS_ON_GOAL", "player": "David Pastrnak", "strike": 3.5,
+                                   "over": 0.5, "under": 0.55}]}
+        self.build()
+        saved = (site.CACHE / "nhl-novig.json").read_text()
+        data = self.build(novig_fetch=lambda league: {"markets": [{"renamed": True}]}, offline=False)
+        self.assertEqual((site.CACHE / "nhl-novig.json").read_text(), saved)   # the good copy stands
+        novig = next(book for book in data["books"] if book["key"] == "novig")
+        self.assertIn("1|shots", novig["prices"])                             # and is on the board
+        self.assertTrue(any(row["ud"] for row in data["rows"]))               # the rest of the board is fine
+
+    def test_a_saved_copy_that_cant_be_read_leaves_the_book_off_instead_of_stopping_the_build(self):
+        self.build()
+        (site.CACHE / "nhl-novig.json").write_text(json.dumps({"markets": [{"renamed": True}]}))
+        data = self.build(offline=True)
+        novig = next(book for book in data["books"] if book["key"] == "novig")
+        self.assertEqual(novig["prices"], {})
+        self.assertTrue(data["rows"])
+
     def test_lines_for_a_slate_that_already_finished_are_dropped(self):
         self.lines["games"][0]["scheduled_at"] = "2026-10-01T23:00:00Z"
         self.assertFalse(any(row["ud"] for row in self.build()["rows"]))
