@@ -4,7 +4,9 @@ The host (whc.ca shared hosting) can't build the site itself, and the books refu
 servers, so the site is built here and sent up. Settings come from the environment or the
 repo's .env file (never committed):
 
-    FTP_SERVER     the host, e.g. ftp.example.com
+    FTP_SERVER     the host, e.g. ftp.yourdomain.ca
+    FTP_CERT_NAME  optional: the name the host's certificate is for, where it isn't FTP_SERVER (on
+                   shared hosting the certificate names the server, e.g. srv2.swhc.ca)
     FTP_USERNAME   the cPanel FTP account
     FTP_PASSWORD
     FTP_DIR        the folder the site goes in (default public_html)
@@ -22,6 +24,8 @@ import json
 import os
 import ssl
 from pathlib import Path
+
+import certifi
 
 from . import site, store
 
@@ -47,12 +51,26 @@ def settings() -> dict:
 
 class _FTPS(ftplib.FTP_TLS):
     """FTP_TLS whose data connections reuse the control connection's TLS session, which many
-    hosts' FTP servers require ("522 SSL connection failed: session reuse required")."""
+    hosts' FTP servers require ("522 SSL connection failed: session reuse required"), and whose
+    certificate is checked against cert_name: on shared hosting the server's certificate names
+    the server (srv2.swhc.ca), not the domain it is reached by."""
+
+    cert_name: str | None = None
+
+    def auth(self):
+        if self.cert_name is None:
+            return super().auth()
+        host, self.host = self.host, self.cert_name   # FTP_TLS.auth checks the certificate against self.host
+        try:
+            return super().auth()
+        finally:
+            self.host = host
 
     def ntransfercmd(self, cmd, rest=None):
         conn, size = ftplib.FTP.ntransfercmd(self, cmd, rest)
         if self._prot_p:
-            conn = self.context.wrap_socket(conn, server_hostname=self.host, session=self.sock.session)
+            conn = self.context.wrap_socket(conn, server_hostname=self.cert_name or self.host,
+                                            session=self.sock.session)
         return conn, size
 
 
@@ -69,7 +87,11 @@ def plan(now: dict[str, str], sent: dict[str, str]) -> tuple[list[str], list[str
 
 
 def _connect(conf: dict) -> _FTPS:
-    ftp = _FTPS(conf["FTP_SERVER"], timeout=60, context=ssl.create_default_context())
+    # certifi's list of certificate authorities: python.org's Python for macOS ships without one
+    # ("unable to get local issuer certificate") until its Install Certificates script is run
+    ftp = _FTPS(timeout=60, context=ssl.create_default_context(cafile=certifi.where()))
+    ftp.cert_name = conf.get("FTP_CERT_NAME") or None
+    ftp.connect(conf["FTP_SERVER"])
     ftp.login(conf["FTP_USERNAME"], conf["FTP_PASSWORD"])
     ftp.prot_p()   # encrypt the files too, not just the login
     ftp.cwd(conf["FTP_DIR"])

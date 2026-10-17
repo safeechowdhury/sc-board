@@ -1,3 +1,4 @@
 polars==1.37.1
 httpx==0.28.1
 curl_cffi==0.16.3
+certifi==2026.01.04
