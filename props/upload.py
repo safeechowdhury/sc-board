@@ -13,7 +13,8 @@ What was sent, and its content hash, is kept in data/cache/uploaded.json, so a r
 new or changed files and deletes the ones site/ no longer has (a player gone from the board).
 Player files go up first and the pages last, so a page never points at a player file that isn't
 there yet. Each file is written under a temporary name and renamed into place, so a visitor
-never gets a half-sent page. `--full` forgets what was sent and sends everything.
+never gets a half-sent page. `--full` forgets what was sent and sends everything. `--clean` sends
+everything and then deletes whatever else is in the folder (but KEEP), leaving exactly site/.
 """
 import ftplib
 import hashlib
@@ -75,19 +76,84 @@ def _connect(conf: dict) -> _FTPS:
     return ftp
 
 
-def upload(root: Path | None = None, full: bool = False) -> list[str]:
-    """Send what changed in site/ to the host. Returns messages for the log."""
+# never deleted by a clean: the host's own (AutoSSL's certificate checks, cPanel's scripts and quota file),
+# plus any top-level names listed in FTP_KEEP ("blog,old-site")
+KEEP = {".well-known", "cgi-bin", ".ftpquota"}
+
+
+def _remote(ftp, path: str = "") -> tuple[list[str], list[str]]:
+    """Every file and folder under the upload folder on the server, as paths relative to it."""
+    files, folders = [], []
+    try:
+        entries = [(name, facts.get("type", "")) for name, facts in ftp.mlsd(path or ".", facts=["type"])]
+    except ftplib.error_perm:   # a server without MLSD: tell folders from files by trying to enter them
+        home, entries = ftp.pwd(), []
+        for name in ftp.nlst(path or "."):
+            name = name.rpartition("/")[2]
+            try:
+                ftp.cwd(f"{home}/{path}/{name}" if path else f"{home}/{name}")
+                entries.append((name, "dir"))
+            except ftplib.error_perm:
+                entries.append((name, "file"))
+            finally:
+                ftp.cwd(home)
+    for name, kind in entries:
+        if name in (".", "..") or kind in ("cdir", "pdir"):
+            continue
+        full = f"{path}/{name}" if path else name
+        if kind == "dir":
+            folders.append(full)
+            more_files, more_folders = _remote(ftp, full)
+            files += more_files
+            folders += more_folders
+        else:
+            files.append(full)
+    return files, folders
+
+
+def strays(remote_files: list[str], remote_folders: list[str], local: dict[str, str], keep: set[str]):
+    """(files, folders deepest first) on the server that aren't part of the site and aren't kept."""
+    local_folders = {name.rsplit("/", i)[0] for name in local for i in range(1, name.count("/") + 1)}
+    kept = lambda path: path.split("/")[0] in keep
+    return (sorted(f for f in remote_files if f not in local and not kept(f)),
+            sorted((d for d in remote_folders if d not in local_folders and not kept(d)), key=lambda d: -d.count("/")))
+
+
+def upload(root: Path | None = None, full: bool = False, clean: bool = False, dry_run: bool = False,
+           confirm=None) -> list[str]:
+    """Send what changed in site/ to the host. Returns messages for the log.
+
+    clean: send every file, then delete everything else in the upload folder (except KEEP), so it
+    holds exactly site/, as if it had been emptied first, but with the old site up until the new
+    one is in place. confirm(files, folders) is asked before anything is deleted; False stops there.
+    dry_run: connect and say what would happen, changing nothing."""
     root = root or site.OUT
     conf = settings()
     now = _hashes(root)
-    sent = {} if full or not SENT.exists() else json.loads(SENT.read_text())
+    sent = {} if full or clean or not SENT.exists() else json.loads(SENT.read_text())
     send, delete = plan(now, sent)
-    if not send and not delete:
+    if not send and not delete and not clean and not dry_run:
         return ["upload: nothing changed since the last upload"]
     ftp = _connect(conf)
+    where = f"{conf['FTP_SERVER']}/{conf['FTP_DIR']}"
     made: set[str] = set()
+    started = False   # the record of what was sent is saved only once sending has begun
     try:
-        for name in send:
+        extra_files, extra_folders = [], []
+        if clean:
+            keep = KEEP | {name.strip() for name in conf.get("FTP_KEEP", "").split(",") if name.strip()}
+            extra_files, extra_folders = strays(*_remote(ftp), now, keep)
+            delete = []
+        if dry_run:
+            out = [f"upload (dry run): connected to {where}", f"upload (dry run): would send {len(send)} files"]
+            gone = extra_files + extra_folders if clean else delete
+            out.append(f"upload (dry run): would delete {len(gone)}" + (":" if gone else ""))
+            out += [f"    {name}" for name in gone[:50]] + ([f"    ... and {len(gone) - 50} more"] if len(gone) > 50 else [])
+            return out
+        if clean and (extra_files or extra_folders) and confirm and not confirm(extra_files, extra_folders):
+            return ["upload: stopped, nothing sent or deleted"]
+        started = True
+        for count, name in enumerate(send, 1):
             folder = name.rpartition("/")[0]
             if folder and folder not in made:
                 path = ""
@@ -102,22 +168,29 @@ def upload(root: Path | None = None, full: bool = False) -> list[str]:
                 ftp.storbinary(f"STOR {name}.part", f)
             ftp.rename(f"{name}.part", name)
             sent[name] = now[name]
-            if len(sent) % 200 == 0:   # a long first upload that breaks off resumes where it was
+            if count % 200 == 0:   # a long upload that breaks off resumes where it was
                 _save(sent)
-        for name in delete:
+        for name in delete + extra_files:
             try:
                 ftp.delete(name)
             except ftplib.error_perm:
                 pass   # already gone
             sent.pop(name, None)
+        for folder in extra_folders:
+            try:
+                ftp.rmd(folder)
+            except ftplib.error_perm:
+                pass   # not empty: something kept is inside
     finally:
-        _save(sent)
+        if started:
+            _save(sent)
         try:
             ftp.quit()
         except (OSError, EOFError, ftplib.Error):
             ftp.close()
-    return [f"upload: sent {len(send)} files" + (f", deleted {len(delete)}" if delete else "")
-            + f" to {conf['FTP_SERVER']}/{conf['FTP_DIR']}"]
+    removed = len(delete) + len(extra_files)
+    return [f"upload: sent {len(send)} files" + (f", deleted {removed}" if removed else "")
+            + (f" and {len(extra_folders)} folders" if extra_folders else "") + f" to {where}"]
 
 
 def _save(sent: dict) -> None:

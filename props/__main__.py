@@ -1,10 +1,11 @@
-"""python -m props [publish | refresh | backfill | build | lines | grade | serve]
+"""python -m props [publish | upload | refresh | backfill | build | lines | grade | serve]
 
 With no command: refresh the game logs, build every board and open the first.
 """
 import argparse
 import functools
 import http.server
+import sys
 import webbrowser
 
 from . import gamelines, grade, net, publish, site, upload
@@ -29,6 +30,20 @@ def serve(port: int) -> None:
     http.server.ThreadingHTTPServer(("", port), handler).serve_forever()
 
 
+def confirm_delete(files: list[str], folders: list[str]) -> bool:
+    """Ask before a clean deletes anything from the host."""
+    gone = files + folders
+    print(f"These {len(files)} files and {len(folders)} folders on the host aren't part of the site:")
+    for name in gone[:40]:
+        print(f"    {name}")
+    if len(gone) > 40:
+        print(f"    ... and {len(gone) - 40} more (see them all with --dry-run)")
+    if not sys.stdin.isatty():
+        print("Not deleting without a yes: run it in a terminal, or add --yes")
+        return False
+    return input("Upload the site and then delete these? [y/N] ").strip().lower() in ("y", "yes")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="props", description=__doc__.strip().splitlines()[-1])
     sub = ap.add_subparsers(dest="cmd")
@@ -39,6 +54,12 @@ def main() -> None:
     p.add_argument("--logs", action="store_true", help="refresh the game logs even if they were already today")
     p.add_argument("--upload", action="store_true", help="then send what changed to the web host over FTPS (FTP_* in .env)")
     p.add_argument("--full", action="store_true", help="with --upload: send every file, not just the changed ones")
+    p = sub.add_parser("upload", help="send site/ as it is to the web host over FTPS (FTP_* in .env)")
+    p.add_argument("--dry-run", action="store_true", help="connect and list what would be sent and deleted, change nothing")
+    p.add_argument("--clean", action="store_true",
+                   help="send every file, then delete everything else in the folder, leaving exactly site/")
+    p.add_argument("--full", action="store_true", help="send every file, not just the changed ones")
+    p.add_argument("--yes", action="store_true", help="with --clean: delete without asking")
     p = sub.add_parser("refresh", parents=[league], help="update game logs for the season in progress")
     p.add_argument("--days", type=int, default=3, help="NHL: days to re-read for stat corrections (default 3)")
     p = sub.add_parser("backfill", help="rebuild whole seasons, e.g. backfill nhl 20252026, backfill nfl 2024 2025")
@@ -60,6 +81,10 @@ def main() -> None:
         if a.full:
             upload.SENT.unlink(missing_ok=True)
         publish.publish(LEAGUES, offline=a.offline, logs=a.logs, upload=a.upload)
+    elif a.cmd == "upload":
+        for line in upload.upload(full=a.full, clean=a.clean, dry_run=a.dry_run,
+                                  confirm=None if a.yes else confirm_delete):
+            print(line)
     elif a.cmd == "refresh":
         refresh(chosen, a.days)
     elif a.cmd == "backfill":
