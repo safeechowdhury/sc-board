@@ -4,7 +4,7 @@ import math
 import unittest
 from unittest import mock
 
-from props import gamelines
+from props import books, gamelines
 from props.leagues import mlb, nba, nfl, nhl
 
 
@@ -216,7 +216,8 @@ class FairTest(unittest.TestCase):
         row["ev"] = gamelines._ev(row)
         self.assertAlmostEqual(row["fair"]["ml"]["home"], 0.522, places=2)
         self.assertAlmostEqual(row["fair"]["total"]["over"], 0.485, places=2)
-        self.assertAlmostEqual(row["ev"]["ml"]["away"], 0.47826 * 2.08 - 1, places=3)
+        self.assertAlmostEqual(row["ev"]["ml"]["away"], row["fair"]["ml"]["away"] * 2.08 - 1, places=9)
+        self.assertAlmostEqual(row["ev"]["ml"]["away"], -0.0069, places=3)
         # without the featured book there is no EV
         rows = gamelines._merge([gamelines_test_book("pinnacle", {"away": 2.04, "home": 1.87}, 6.0, 2.0, 1.885)], nhl)
         self.assertIsNone(gamelines._ev(rows[0]))
@@ -232,7 +233,7 @@ class WeightedFairTest(unittest.TestCase):
         ], nhl)
         row, = rows
         fair = gamelines.fair(row)
-        pin = (1 / 1.8) / (1 / 1.8 + 1 / 2.1)
+        pin = books.devig(1 / 1.8, 1 / 2.1)[0]   # the power method
         expect = 1 / (1 + math.exp(-(1 * math.log(pin / (1 - pin))) / 2.1))   # Kalshi's 50% adds 0 log-odds
         self.assertAlmostEqual(fair["ml"]["away"], expect, places=6)
         self.assertAlmostEqual(fair["ml"]["home"], 1 - expect, places=6)
@@ -316,3 +317,14 @@ class StakeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PowerDevigTest(unittest.TestCase):
+    def test_both_sides_add_to_one_and_the_long_side_gives_up_more_of_the_margin(self):
+        over, under = books.devig(1 / 5.0, 1 / 1.15)
+        self.assertAlmostEqual(over + under, 1, places=12)
+        self.assertLess(over, (1 / 5.0) / (1 / 5.0 + 1 / 1.15))   # below the equal-scaling answer
+        self.assertAlmostEqual(books.devig(1 / 1.87, 1 / 1.87)[0], 0.5, places=12)
+
+    def test_a_price_with_no_margin_is_left_as_it_is(self):
+        self.assertAlmostEqual(books.devig(0.25, 0.75)[0], 0.25, places=12)

@@ -806,9 +806,8 @@ def _merge(book_games: list[dict], league) -> list[dict]:
 
 
 def devig(away: float, home: float) -> tuple[float, float]:
-    """Both sides' implied chances scaled to add up to 100%."""
-    total = away + home
-    return (away / total, home / total) if total else (0.0, 0.0)
+    """Both sides' implied chances with the vig removed (books.devig, the power method)."""
+    return books.devig(away, home)
 
 
 def _weighted(chances: list[tuple[float, float]]) -> float:

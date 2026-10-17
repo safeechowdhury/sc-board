@@ -12,7 +12,7 @@ Each book is a module with the same surface:
 
 Prices are decimal odds. The board measures a site's price (Underdog's payout,
 Mise-o-jeu's or Betano's) against the fair chance: each sharp book (WEIGHT above 0) posting
-both sides at the row's line has its vig removed (both sides scaled to 100%), and their
+both sides at the row's line has its vig removed (devig(), the power method), and their
 chances are averaged in log-odds by WEIGHT. A book whose two sides add up to more than
 1 + MAX_OVERROUND is left out: nobody is making a real price there. A sharp book's one-way
 over at the line caps the over's chance.
@@ -31,6 +31,7 @@ other lines: its devigged chances are read across in log-odds between the lines 
 the row's, or moved from its nearest line by the slope the books' ladders show for that player.
 It counts for less the further it reaches, and the row's fair is marked an estimate.
 """
+import math
 import types
 
 import httpx
@@ -43,6 +44,24 @@ BOOKS = (pinnacle, fanduel, draftkings, kambi, novig, kalshi, polymarket, mise, 
 MAX_OVERROUND = 0.10   # a two-way price whose sides imply more than 110% is too wide to count
 CONFIDENT = (("novig",), ("kalshi",), ("polymarket",), ("pinnacle", "draftkings", "fanduel"))   # any one set, all two-way at the line
 ESTIMATE = ("novig", "kalshi", "polymarket")   # off the row's line, still part of fair: estimated from their other lines
+
+
+def devig(a: float, b: float) -> tuple[float, float]:
+    """Two implied chances (1 / decimal price) with the vig removed, by the power method: the k
+    with a**k + b**k = 1, then (a**k, b**k). Unlike scaling both sides down equally, it takes
+    more of the margin off the longer side, where books put more of it, so a long over isn't
+    left looking likelier than it is. Mirrored as devigOver in template.html."""
+    if not (0 < a < 1 and 0 < b < 1):
+        total = a + b
+        return (a / total, b / total) if total else (0.0, 0.0)
+    k = 1.0   # Newton from 1: f(k) = a**k + b**k - 1 is convex and falling, so it closes in from one side
+    for _ in range(50):
+        f = a ** k + b ** k - 1
+        step = f / (a ** k * math.log(a) + b ** k * math.log(b))
+        k -= step
+        if abs(step) < 1e-12:
+            break
+    return a ** k, b ** k
 
 
 def carries(book, league) -> bool:

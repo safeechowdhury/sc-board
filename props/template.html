@@ -708,8 +708,27 @@ const targetPrice = (row, side, quotes) => {
   const q = quotes[D.books.findIndex(b => b.key === state.target)];
   return q && q.line === row.line ? q.price : null;
 };
-// The over's chance with the vig removed: both implied chances scaled to add up to 100%.
-const devigOver = (over, under) => (1 / over) / (1 / over + 1 / under);
+// The over's chance with the vig removed, by the power method: the k with a^k + b^k = 1 for the
+// implied chances a and b, then a^k. It takes more of the margin off the longer side, where books
+// put more of it. Mirrors books.devig in Python. Remembered per price pair: the ladders ask often.
+const devigMemo = new Map();
+const devigOver = (over, under) => {
+  const memo = over + "|" + under;
+  if (devigMemo.has(memo)) return devigMemo.get(memo);
+  const a = 1 / over, b = 1 / under;
+  let out = a / (a + b);
+  if (a > 0 && a < 1 && b > 0 && b < 1) {
+    let k = 1;
+    for (let i = 0; i < 50; i++) {
+      const step = (a ** k + b ** k - 1) / (a ** k * Math.log(a) + b ** k * Math.log(b));
+      k -= step;
+      if (Math.abs(step) < 1e-12) break;
+    }
+    out = a ** k;
+  }
+  devigMemo.set(memo, out);
+  return out;
+};
 const logit = p => Math.log(p / (1 - p)), unlogit = x => 1 / (1 + Math.exp(-x));
 const BOOK_NAME = Object.fromEntries(D.books.map(b => [b.key, b.name]));
 // What makes a fair chance count, in words: "Novig, Kalshi, or all of Pinnacle, DraftKings and FanDuel".
