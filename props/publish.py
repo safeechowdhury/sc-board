@@ -19,7 +19,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import gamelines, net, site, store
+from . import gamelines, grade, net, site, store
 from .slate import slate_date
 
 PAGES_ZIP = store.ROOT / "sc-board-pages.zip"
@@ -30,11 +30,12 @@ PLAYERS_KEY = store.DATA / "cache" / "players-zip.json"       # ... and what the
 LOGS_DAY = store.DATA / "cache" / "logs-refreshed"            # the slate day the game logs were last refreshed
 
 
-def refresh_logs(leagues: dict, force: bool = False) -> None:
-    """Every league's game logs, refreshed at once (each from its own league's site), once a slate day."""
+def refresh_logs(leagues: dict, force: bool = False) -> bool:
+    """Every league's game logs, refreshed at once (each from its own league's site), once a slate
+    day. Returns whether they were refreshed."""
     today = str(slate_date())
     if not force and LOGS_DAY.exists() and LOGS_DAY.read_text() == today:
-        return
+        return False
     leagues = {key: league for key, league in leagues.items() if not getattr(league, "ODDS_ONLY", False)}   # no logs to refresh
 
     def refresh(league):
@@ -46,6 +47,7 @@ def refresh_logs(leagues: dict, force: bool = False) -> None:
                 print(message)
     LOGS_DAY.parent.mkdir(parents=True, exist_ok=True)
     LOGS_DAY.write_text(today)
+    return True
 
 
 def build_all(leagues: dict, offline: bool = False, lines: bool = True, record: bool = False) -> list[Path]:
@@ -128,8 +130,13 @@ def zip_site(root: Path | None = None) -> list[str]:
 
 def publish(leagues: dict, offline: bool = False, logs: bool = False) -> None:
     started = time.monotonic()
-    if not offline:
-        refresh_logs(leagues, force=logs)
+    if not offline and refresh_logs(leagues, force=logs):
+        # last night's results are in: grade the prices kept so far (data/grades.json, not shown on the site)
+        try:
+            for line in grade.report(grade.grade(leagues)):
+                print(f"grade {line}")
+        except Exception as e:   # grading is a side job: it never holds up a publish
+            print(f"grade: FAILED: {type(e).__name__}: {e}")
     build_all(leagues, offline, record=not offline)   # a saved fetch's prices aren't new: nothing to keep
     built = time.monotonic()
     for message in zip_site():

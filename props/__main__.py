@@ -1,4 +1,4 @@
-"""python -m props [publish | refresh | backfill | build | lines | serve]
+"""python -m props [publish | refresh | backfill | build | lines | grade | serve]
 
 With no command: refresh the game logs, build every board and open the first.
 """
@@ -7,7 +7,7 @@ import functools
 import http.server
 import webbrowser
 
-from . import gamelines, net, publish, site
+from . import gamelines, grade, net, publish, site
 from .leagues import LEAGUES
 from .store import Store
 
@@ -49,6 +49,7 @@ def main() -> None:
     p.add_argument("--port", type=int, default=8000)
     p = sub.add_parser("lines", parents=[league], help="fetch moneylines and totals, write site/lines.html")
     p.add_argument("--offline", action="store_true", help="reuse the last fetched lines")
+    p = sub.add_parser("grade", parents=[league], help="grade the books and Fair from the price snapshots")
     a = ap.parse_args()
 
     one = getattr(a, "league", None) if a.cmd != "backfill" else None
@@ -59,6 +60,10 @@ def main() -> None:
         refresh(chosen, a.days)
     elif a.cmd == "backfill":
         backfill(LEAGUES[a.league], a.seasons)
+    elif a.cmd == "grade":
+        for line in grade.report(grade.grade({league.KEY: league for league in chosen})):
+            print(line)
+        print(f"wrote {grade.OUT}")
     elif a.cmd == "serve":
         serve(a.port)
     elif a.cmd == "lines":

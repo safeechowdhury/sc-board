@@ -20,6 +20,7 @@ That refreshes the game logs, fetches the current Underdog lines, writes `site/i
 | `python -m props backfill nfl 2024 2025` | same for the NFL |
 | `python -m props backfill mlb 2025` | same for MLB (about twenty seconds a season) |
 | `python -m props backfill nba 20242025 20252026` | same for the NBA (about forty seconds a season) |
+| `python -m props grade [--league nhl]` | grade the books and Fair from the price snapshots against the game logs; writes `data/grades.json` (see Grading). `publish` runs it once a day, after the game logs refresh |
 | `python -m props serve [--port 8000]` | serve `site/` so a phone on the same network can open it |
 | `python -m unittest discover -s tests -t .` | run the tests |
 
@@ -114,6 +115,16 @@ Each publish (not `--offline`, whose prices aren't new) also keeps the boards' p
 The boards and the lines page drop a game when it starts, both at the build and in the open page (every 30 seconds), so a page uploaded before the slate stays correct through it.
 
 `.github/workflows/publish.yml` runs the tests, refreshes the logs, builds the boards and uploads `site/` to the whc.ca hosting account over FTPS every hour from late morning to the late games, plus once at 5 AM Eastern. Only files that changed are uploaded. To turn it on, add the repository secrets `FTP_SERVER`, `FTP_USERNAME` and `FTP_PASSWORD` (**Settings → Secrets and variables → Actions**). It uploads to `public_html/`; set the variable `FTP_DIR` for another folder (it must end in `/`, and is `./` for an FTP account already limited to the site's folder). Whether Pinnacle, FanDuel, DraftKings, Kambi, Novig, Mise-o-jeu and Bovada answer GitHub's runners hasn't been tested (Mise-o-jeu is a Québec site and may answer only Canadian addresses); if one doesn't, the build log says so and the hosted board shows no prices from it.
+
+## Grading
+
+`python -m props grade` (`props/grade.py`) checks the prices the snapshots kept against what happened, with no requests. For each league with game logs it writes to `data/grades.json`:
+
+- **books**: each book's devigged closing price (its last before the game) against the result at its line, as log loss and Brier score, and, on the same props, how much better or worse it did than Fair made from the other sharp books alone (`vs_rest`). A book with a positive gain knows something the rest don't; that is the number to set `WEIGHT` by.
+- **fair**: Fair at close, its log loss and its calibration (props bucketed by Fair's chance of the over, against how often the over landed), for every prop and for the confident ones.
+- **targets**: every side each betting site offered that the board showed as +EV, graded from the first publish that showed it: the EV shown, its closing line value against Fair at close, how often it won, and the return per unit at that price.
+
+Fair is worked out as on the board (power devig, log-odds by weight), at the line only: the board's estimates from an exchange's other lines and its one-way cap are not repeated. A player who didn't play, or a result on the line, is left out. The grades aren't shown on the site: a few days of games is too few to say much, and closing line value settles first.
 
 ## Layout
 
