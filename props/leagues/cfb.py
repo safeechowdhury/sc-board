@@ -40,6 +40,8 @@ NOVIG_LEAGUE = None     # its college games have no player props
 NOVIG_STATS = nfl.NOVIG_STATS
 PROPHETX_TOURNAMENT = 27653   # ProphetX's College Football
 PROPHETX_STATS = nfl.PROPHETX_STATS   # the same subTypes
+BET99_COMPETITION = 1595502   # BET99's NCAAF
+BET99_STATS = {code: stat for code, stat in nfl.BET99_STATS.items() if stat != "fumbles_lost"}   # the NFL's codes
 POLYMARKET_SPORT = "cfb"
 POLYMARKET_STATS = {"anytime_touchdowns": "rush_rec_tds", "two_plus_touchdowns": "rush_rec_tds"}
 KALSHI_GAME, KALSHI_TOTAL = "KXNCAAFGAME", "KXNCAAFTOTAL"

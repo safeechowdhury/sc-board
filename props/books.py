@@ -39,10 +39,10 @@ import types
 
 import httpx
 
-from . import betano, bovada, draftkings, fanduel, kalshi, kambi, mise, novig, pick6, pinnacle, polymarket, prophetx, stake
+from . import bet99, betano, bovada, draftkings, fanduel, kalshi, kambi, mise, novig, pick6, pinnacle, polymarket, prophetx, stake
 from .underdog import norm_name
 
-BOOKS = (pinnacle, fanduel, draftkings, kambi, novig, kalshi, polymarket, prophetx, mise, betano, stake, pick6, bovada)   # the books with odds, the sites to bet on, then the rest
+BOOKS = (pinnacle, fanduel, draftkings, kambi, novig, kalshi, polymarket, prophetx, mise, betano, stake, pick6, bovada, bet99)   # the books with odds, the sites to bet on, then the rest
 
 MAX_OVERROUND = 0.10   # a two-way price whose sides imply more than 110% is too wide to count
 CONFIDENT = (("novig",), ("kalshi",), ("polymarket",), ("prophetx",), ("pinnacle", "draftkings", "fanduel"))   # any one set, all two-way at the line

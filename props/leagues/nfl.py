@@ -346,6 +346,26 @@ PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19); its "Assists" are 
     "player_total_kicking_points": "kicking_points",
 }
 
+BET99_COMPETITION = 1595610   # BET99's NFL (its compId)
+BET99_STATS = {   # its stat codes (seen 2026-10-19), each also as <code>MILE, its alternate lines; its AST is tackle assists, not ours; ATDMILE is 2+ TDs
+    "PROPPSYDS": "pass_yds", "PROPPSYDSMILE": "pass_yds",
+    "PROPPSTD": "pass_tds", "PROPPSTDMILE": "pass_tds",
+    "PROPPSCMP": "pass_cmp", "PROPPSCMPMILE": "pass_cmp",
+    "PROPPSATT": "pass_att", "PROPPSATTMILE": "pass_att",
+    "PROPINT": "pass_int", "PROPINTMILE": "pass_int",
+    "PROPPSPRSYDS": "pass_rush_yds", "PROPPSPRSYDSMILE": "pass_rush_yds",
+    "PROPRSYDS": "rush_yds", "PROPRSYDSMILE": "rush_yds",
+    "PROPRSATT": "rush_att", "PROPRSATTMILE": "rush_att",
+    "PROPRSPRCYDS": "rush_rec_yds", "PROPRSPRCYDSMILE": "rush_rec_yds",
+    "PROPRCYDS": "rec_yds", "PROPRCYDSMILE": "rec_yds",
+    "PROPREC": "receptions", "PROPRECMILE": "receptions",
+    "PROPATD": "rush_rec_tds", "PROPATDMILE": "rush_rec_tds",
+    "PROPFGM": "fg_made", "PROPFGMMILE": "fg_made",
+    "PROPKPT": "kicking_points", "PROPKPTMILE": "kicking_points",
+    "PROPEXTPTM": "xp_made", "PROPEXTPTMMILE": "xp_made",
+    "PROPFBLLST": "fumbles_lost", "PROPFBLLSTMILE": "fumbles_lost",
+}
+
 POLYMARKET_SPORT = "nfl"
 POLYMARKET_STATS = {   # its market types ("C.J. Stroud: Passing Yards O/U 149.5", "Bhayshul Tuten: 2+ Touchdowns")
     "passing_yards": "pass_yds", "passing_touchdowns": "pass_tds", "passing_attempts": "pass_att",

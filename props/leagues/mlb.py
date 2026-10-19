@@ -336,6 +336,26 @@ PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19)
     "player_total_earned_runs_allowed": "earned_runs", "player_walks_allowed": "walks_allowed",
 }
 
+BET99_COMPETITION = 305   # BET99's MLB (its compId)
+BET99_STATS = {   # its stat codes (seen 2026-10-19), each also as <code>MILE, its alternate lines; BBB a batter's walks, BB a pitcher's
+    "PROPH": "hits", "PROPHMILE": "hits",
+    "PROPRBI": "rbis", "PROPRBIMILE": "rbis",
+    "PROPR": "runs", "PROPRMILE": "runs",
+    "PROPHPRPRBI": "hits_runs_rbis", "PROPHPRPRBIMILE": "hits_runs_rbis",
+    "PROP1B": "singles", "PROP1BMILE": "singles",
+    "PROP2B": "doubles", "PROP2BMILE": "doubles",
+    "PROPHR": "home_runs", "PROPHRMILE": "home_runs",
+    "PROPTB": "total_bases", "PROPTBMILE": "total_bases",
+    "PROPSB": "stolen_bases", "PROPSBMILE": "stolen_bases",
+    "PROPBSO": "batter_ks", "PROPBSOMILE": "batter_ks",
+    "PROPBBB": "walks", "PROPBBBMILE": "walks",
+    "PROPSO": "strikeouts", "PROPSOMILE": "strikeouts",
+    "PROPOUT": "outs", "PROPOUTMILE": "outs",
+    "PROPHA": "hits_allowed", "PROPHAMILE": "hits_allowed",
+    "PROPER": "earned_runs", "PROPERMILE": "earned_runs",
+    "PROPBB": "walks_allowed", "PROPBBMILE": "walks_allowed",
+}
+
 POLYMARKET_SPORT = "mlb"
 POLYMARKET_STATS = {   # "Drew Anderson: Strikeouts O/U 2.5"
     "baseball_player_hits": "hits", "baseball_player_total_bases": "total_bases",

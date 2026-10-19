@@ -289,6 +289,17 @@ PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19)
     "player_total_points": "points", "player_powerplay_points": "ppp",
 }
 
+BET99_COMPETITION = 1590   # BET99's NHL (its compId)
+BET99_STATS = {   # its stat codes (seen 2026-10-19), each also as <code>MILE, its alternate lines; first goal is FG
+    "PROPG": "goals", "PROPGMILE": "goals",
+    "PROPA": "assists", "PROPAMILE": "assists",
+    "PROPPTS": "points", "PROPPTSMILE": "points",
+    "PROPS": "shots", "PROPSMILE": "shots",
+    "PROPPPP": "ppp", "PROPPPPMILE": "ppp",
+    "PROPBS": "blocked_shots", "PROPBSMILE": "blocked_shots",
+    "PROPFG": "first_goals", "PROPFGMILE": "first_goals",
+}
+
 KALSHI_GAME, KALSHI_TOTAL = "KXNHLGAME", "KXNHLTOTAL"
 KALSHI_STATS = {   # Kalshi series, each market a rung ("Tom Wilson: 2+ points"); no shots series
     "KXNHLGOAL": "goals", "KXNHLPTS": "points", "KXNHLAST": "assists", "KXNHLSAVE": "saves",

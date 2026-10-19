@@ -291,6 +291,26 @@ PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19)
     "player_to_record_a_triple_double": "triple_double",
 }
 
+BET99_COMPETITION = 3403545   # BET99's NBA (its compId)
+BET99_STATS = {   # its stat codes (seen 2026-10-19), each also as <code>MILE, its alternate lines
+    "PROPPTS": "points", "PROPPTSMILE": "points",
+    "PROPREB": "rebounds", "PROPREBMILE": "rebounds",
+    "PROPAST": "assists", "PROPASTMILE": "assists",
+    "PROP3PM": "threes", "PROP3PMMILE": "threes",
+    "PROPPPAPR": "pts_rebs_asts", "PROPPPAPRMILE": "pts_rebs_asts",
+    "PROPPPR": "pts_rebs", "PROPPPRMILE": "pts_rebs",
+    "PROPPPA": "pts_asts", "PROPPPAMILE": "pts_asts",
+    "PROPAPR": "rebs_asts", "PROPAPRMILE": "rebs_asts",
+    "PROPSTL": "steals", "PROPSTLMILE": "steals",
+    "PROPBLK": "blocks", "PROPBLKMILE": "blocks",
+    "PROPSPB": "blks_stls", "PROPSPBMILE": "blks_stls",
+    "PROPTOV": "turnovers", "PROPTOVMILE": "turnovers",
+    "PROP3PA": "threes_att", "PROP3PAMILE": "threes_att",
+    "PROPFGA": "fga", "PROPFGAMILE": "fga",
+    "PROPDD": "double_double", "PROPDDMILE": "double_double",
+    "PROPTD": "triple_double", "PROPTDMILE": "triple_double",
+}
+
 POLYMARKET_SPORT = "nba"
 POLYMARKET_STATS = {"points": "points", "rebounds": "rebounds", "assists": "assists"}   # "Jayson Tatum: Points O/U 26.5"
 KALSHI_GAME, KALSHI_TOTAL = "KXNBAGAME", "KXNBATOTAL"

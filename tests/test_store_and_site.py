@@ -60,6 +60,7 @@ class TempStore(unittest.TestCase):
         self.kalshi = {"markets": []}
         self.polymarket = {"markets": []}
         self.prophetx = {"markets": []}
+        self.bet99 = {"markets": []}
         self.betano = {"markets": []}
         self.stake = {"fixtures": []}
         self.pick6 = {"pickCardsResponse": {}}
@@ -67,7 +68,7 @@ class TempStore(unittest.TestCase):
 
     def build(self, fetch=None, league=nhl, pin_fetch=None, fd_fetch=None, dk_fetch=None, kambi_fetch=None, mise_fetch=None,
               bovada_fetch=None, novig_fetch=None, kalshi_fetch=None, polymarket_fetch=None, betano_fetch=None, stake_fetch=None,
-              pick6_fetch=None, prophetx_fetch=None, kambi_games=None, **kwargs):
+              pick6_fetch=None, prophetx_fetch=None, bet99_fetch=None, kambi_games=None, **kwargs):
         slate, board = site.slate_date, site.board_date
         with contextlib.ExitStack() as patches:   # more patches than one with statement can nest
             patches.enter_context(mock.patch.object(site, "slate_date", side_effect=lambda now=None: slate(now or self.now)))
@@ -96,6 +97,8 @@ class TempStore(unittest.TestCase):
                                                     lambda league, until=None, now=None: (betano_fetch or (lambda league: self.betano))(league)))
             patches.enter_context(mock.patch.object(site.books.stake, "fetch",
                                                     lambda league, until=None, now=None: (stake_fetch or (lambda league: self.stake))(league)))
+            patches.enter_context(mock.patch.object(site.books.bet99, "fetch",
+                                                    lambda league, until=None, now=None: (bet99_fetch or (lambda league: self.bet99))(league)))
             patches.enter_context(mock.patch.object(site.books.pick6, "fetch", pick6_fetch or (lambda league, until=None, now=None: self.pick6)))
             patches.enter_context(mock.patch.object(league, "schedule", return_value=self.schedule, create=True))
             patches.enter_context(mock.patch.object(league, "rosters", side_effect=lambda teams, today: self.rosters, create=True))
@@ -427,7 +430,8 @@ class BuildTest(TempStore):
                           ("betano", "Betano", 0, False, True),   # likewise
                           ("stake", "Stake", 0, False, True),     # likewise
                           ("pick6", "Pick6", 0, False, False),    # shown only: its one flat pick'em price
-                          ("bovada", "Bovada", 0, False, False)])  # shown only
+                          ("bovada", "Bovada", 0, False, False),  # shown only
+                          ("bet99", "BET99", 0, False, True)])    # a site to bet on, never part of the fair chance
         self.assertEqual(data["fair"], {"maxOverround": 0.1,
                                         "confident": [["novig"], ["kalshi"], ["polymarket"], ["prophetx"],
                                                       ["pinnacle", "draftkings", "fanduel"]],
@@ -441,8 +445,8 @@ class BuildTest(TempStore):
 
         data = self.build(pin_fetch=down, fd_fetch=down, dk_fetch=down, kambi_fetch=down, mise_fetch=down, bovada_fetch=down,
                           novig_fetch=down, kalshi_fetch=down, polymarket_fetch=down, betano_fetch=down,
-                          stake_fetch=down, pick6_fetch=down, prophetx_fetch=down)
-        self.assertEqual([(b["prices"], b["fetched"]) for b in data["books"]], [({}, None)] * 13)
+                          stake_fetch=down, pick6_fetch=down, prophetx_fetch=down, bet99_fetch=down)
+        self.assertEqual([(b["prices"], b["fetched"]) for b in data["books"]], [({}, None)] * 14)
         self.assertEqual(sum(row["ud"] for row in data["rows"]), 2)
 
 
