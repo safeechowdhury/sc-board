@@ -1,530 +1,574 @@
 {
- "generated": "2026-10-17T15:57+00:00",
+ "generated": "2026-10-19T12:17+00:00",
  "leagues": {
   "nhl": {
-   "graded_through": "2026-10-17 02:00:00+00:00",
+   "graded_through": "2026-10-19 00:00:00+00:00",
    "books": {
     "betano": {
-     "n": 839,
-     "log_loss": 0.6121,
-     "brier": 0.2128,
+     "n": 1971,
+     "log_loss": 0.5979,
+     "brier": 0.206,
      "vs_rest": {
-      "n": 732,
-      "log_loss_gain": -0.0057
+      "n": 1450,
+      "log_loss_gain": -0.0025
      }
     },
     "bovada": {
-     "n": 166,
-     "log_loss": 0.6913,
-     "brier": 0.2491,
+     "n": 319,
+     "log_loss": 0.6979,
+     "brier": 0.2523,
      "vs_rest": {
-      "n": 157,
-      "log_loss_gain": -0.0018
+      "n": 306,
+      "log_loss_gain": 0.0042
      }
     },
     "draftkings": {
-     "n": 893,
-     "log_loss": 0.6254,
-     "brier": 0.2186,
+     "n": 1682,
+     "log_loss": 0.6359,
+     "brier": 0.2231,
      "vs_rest": {
-      "n": 862,
-      "log_loss_gain": 0.0002
+      "n": 1632,
+      "log_loss_gain": 0.0005
      }
     },
     "fanduel": {
-     "n": 229,
-     "log_loss": 0.6605,
-     "brier": 0.2339,
+     "n": 432,
+     "log_loss": 0.6508,
+     "brier": 0.2298,
      "vs_rest": {
-      "n": 229,
-      "log_loss_gain": -0.0033
+      "n": 429,
+      "log_loss_gain": -0.0015
      }
     },
     "kalshi": {
-     "n": 1136,
-     "log_loss": 0.5183,
-     "brier": 0.1724,
+     "n": 2169,
+     "log_loss": 0.5238,
+     "brier": 0.1747,
      "vs_rest": {
-      "n": 1062,
-      "log_loss_gain": 0.0017
+      "n": 1917,
+      "log_loss_gain": 0.0015
      }
     },
     "kambi": {
-     "n": 1067,
-     "log_loss": 0.6357,
-     "brier": 0.2223,
+     "n": 2209,
+     "log_loss": 0.6381,
+     "brier": 0.2232,
      "vs_rest": {
-      "n": 778,
+      "n": 1509,
       "log_loss_gain": -0.004
      }
     },
     "mise": {
-     "n": 770,
-     "log_loss": 0.6263,
-     "brier": 0.2191,
+     "n": 982,
+     "log_loss": 0.6398,
+     "brier": 0.2254,
      "vs_rest": {
-      "n": 768,
-      "log_loss_gain": 0.0001
+      "n": 975,
+      "log_loss_gain": -0.0009
      }
     },
     "novig": {
-     "n": 1352,
-     "log_loss": 0.5236,
-     "brier": 0.176,
+     "n": 2445,
+     "log_loss": 0.5498,
+     "brier": 0.1866,
      "vs_rest": {
-      "n": 1231,
-      "log_loss_gain": -0.0014
+      "n": 2280,
+      "log_loss_gain": -0.0012
      }
     },
     "pinnacle": {
-     "n": 843,
-     "log_loss": 0.6417,
-     "brier": 0.2254,
+     "n": 1588,
+     "log_loss": 0.6431,
+     "brier": 0.226,
      "vs_rest": {
-      "n": 830,
-      "log_loss_gain": -0.0006
+      "n": 1565,
+      "log_loss_gain": -0.0012
      }
     },
     "stake": {
-     "n": 693,
-     "log_loss": 0.6589,
-     "brier": 0.2332,
+     "n": 2028,
+     "log_loss": 0.6514,
+     "brier": 0.2297,
      "vs_rest": {
-      "n": 470,
-      "log_loss_gain": -0.0062
+      "n": 1274,
+      "log_loss_gain": -0.0055
      }
     },
     "underdog": {
-     "n": 355,
-     "log_loss": 0.6961,
-     "brier": 0.2515,
+     "n": 793,
+     "log_loss": 0.6932,
+     "brier": 0.25,
+     "vs_rest": {
+      "n": 542,
+      "log_loss_gain": 0.0018
+     }
+    }
+   },
+   "fair": {
+    "all": {
+     "n": 2916,
+     "log_loss": 0.5354,
+     "brier": 0.181,
+     "calibration": [
+      {
+       "from": 0,
+       "to": 0.1,
+       "n": 468,
+       "predicted": 0.0422,
+       "landed": 0.0513
+      },
+      {
+       "from": 0.1,
+       "to": 0.2,
+       "n": 398,
+       "predicted": 0.1506,
+       "landed": 0.1407
+      },
+      {
+       "from": 0.2,
+       "to": 0.3,
+       "n": 517,
+       "predicted": 0.2515,
+       "landed": 0.2302
+      },
+      {
+       "from": 0.3,
+       "to": 0.4,
+       "n": 504,
+       "predicted": 0.352,
+       "landed": 0.3155
+      },
+      {
+       "from": 0.4,
+       "to": 0.5,
+       "n": 575,
+       "predicted": 0.449,
+       "landed": 0.4887
+      },
+      {
+       "from": 0.5,
+       "to": 0.6,
+       "n": 360,
+       "predicted": 0.5448,
+       "landed": 0.5472
+      },
+      {
+       "from": 0.6,
+       "to": 0.7,
+       "n": 93,
+       "predicted": 0.6344,
+       "landed": 0.6022
+      },
+      {
+       "from": 0.7,
+       "to": 0.8,
+       "n": 1,
+       "predicted": 0.712,
+       "landed": 1.0
+      }
+     ]
+    },
+    "confident": {
+     "n": 2824,
+     "log_loss": 0.532,
+     "brier": 0.1795,
+     "calibration": [
+      {
+       "from": 0,
+       "to": 0.1,
+       "n": 468,
+       "predicted": 0.0422,
+       "landed": 0.0513
+      },
+      {
+       "from": 0.1,
+       "to": 0.2,
+       "n": 386,
+       "predicted": 0.15,
+       "landed": 0.1425
+      },
+      {
+       "from": 0.2,
+       "to": 0.3,
+       "n": 514,
+       "predicted": 0.2516,
+       "landed": 0.2296
+      },
+      {
+       "from": 0.3,
+       "to": 0.4,
+       "n": 489,
+       "predicted": 0.3518,
+       "landed": 0.3088
+      },
+      {
+       "from": 0.4,
+       "to": 0.5,
+       "n": 548,
+       "predicted": 0.4486,
+       "landed": 0.4836
+      },
+      {
+       "from": 0.5,
+       "to": 0.6,
+       "n": 339,
+       "predicted": 0.5453,
+       "landed": 0.5369
+      },
+      {
+       "from": 0.6,
+       "to": 0.7,
+       "n": 79,
+       "predicted": 0.633,
+       "landed": 0.5949
+      },
+      {
+       "from": 0.7,
+       "to": 0.8,
+       "n": 1,
+       "predicted": 0.712,
+       "landed": 1.0
+      }
+     ]
+    }
+   },
+   "targets": {
+    "betano": {
+     "picks": 695,
+     "ev_shown": 0.0372,
+     "clv": 0.023,
+     "clv_n": 691,
+     "won": 0.5252,
+     "roi": 0.0218
+    },
+    "fanduel": {
+     "picks": 154,
+     "ev_shown": 0.0234,
+     "clv": -0.0273,
+     "clv_n": 149,
+     "won": 0.3247,
+     "roi": -0.0764
+    },
+    "mise": {
+     "picks": 114,
+     "ev_shown": 0.0221,
+     "clv": -0.0234,
+     "clv_n": 111,
+     "won": 0.4737,
+     "roi": -0.0676
+    },
+    "stake": {
+     "picks": 409,
+     "ev_shown": 0.027,
+     "clv": 0.017,
+     "clv_n": 406,
+     "won": 0.5697,
+     "roi": 0.0483
+    },
+    "underdog": {
+     "picks": 204,
+     "ev_shown": 0.019,
+     "clv": 0.0013,
+     "clv_n": 202,
+     "won": 0.4363,
+     "roi": -0.1526
+    }
+   }
+  },
+  "nfl": {
+   "graded_through": "2026-10-19 00:20:00+00:00",
+   "books": {
+    "betano": {
+     "n": 631,
+     "log_loss": 0.6918,
+     "brier": 0.2493,
+     "vs_rest": {
+      "n": 401,
+      "log_loss_gain": -0.0067
+     }
+    },
+    "bovada": {
+     "n": 356,
+     "log_loss": 0.6927,
+     "brier": 0.2497,
      "vs_rest": {
       "n": 262,
+      "log_loss_gain": -0.0051
+     }
+    },
+    "draftkings": {
+     "n": 480,
+     "log_loss": 0.6918,
+     "brier": 0.2493,
+     "vs_rest": {
+      "n": 357,
+      "log_loss_gain": -0.0016
+     }
+    },
+    "fanduel": {
+     "n": 272,
+     "log_loss": 0.6879,
+     "brier": 0.2473,
+     "vs_rest": {
+      "n": 242,
+      "log_loss_gain": -0.0004
+     }
+    },
+    "kalshi": {
+     "n": 978,
+     "log_loss": 0.5508,
+     "brier": 0.1908,
+     "vs_rest": {
+      "n": 761,
+      "log_loss_gain": 0.0012
+     }
+    },
+    "kambi": {
+     "n": 472,
+     "log_loss": 0.6913,
+     "brier": 0.2491,
+     "vs_rest": {
+      "n": 356,
+      "log_loss_gain": -0.003
+     }
+    },
+    "mise": {
+     "n": 232,
+     "log_loss": 0.6939,
+     "brier": 0.2504,
+     "vs_rest": {
+      "n": 227,
+      "log_loss_gain": -0.0006
+     }
+    },
+    "novig": {
+     "n": 840,
+     "log_loss": 0.5817,
+     "brier": 0.2021,
+     "vs_rest": {
+      "n": 821,
+      "log_loss_gain": 0.0019
+     }
+    },
+    "pinnacle": {
+     "n": 668,
+     "log_loss": 0.6726,
+     "brier": 0.2405,
+     "vs_rest": {
+      "n": 463,
+      "log_loss_gain": -0.0003
+     }
+    },
+    "polymarket": {
+     "n": 262,
+     "log_loss": 0.5696,
+     "brier": 0.1939,
+     "vs_rest": {
+      "n": 240,
+      "log_loss_gain": -0.0137
+     }
+    },
+    "stake": {
+     "n": 941,
+     "log_loss": 0.6516,
+     "brier": 0.2303,
+     "vs_rest": {
+      "n": 808,
+      "log_loss_gain": -0.0076
+     }
+    },
+    "underdog": {
+     "n": 574,
+     "log_loss": 0.6862,
+     "brier": 0.2465,
+     "vs_rest": {
+      "n": 420,
       "log_loss_gain": -0.0005
      }
     }
    },
    "fair": {
     "all": {
-     "n": 1557,
-     "log_loss": 0.5197,
-     "brier": 0.1743,
+     "n": 1496,
+     "log_loss": 0.593,
+     "brier": 0.2083,
      "calibration": [
       {
        "from": 0,
        "to": 0.1,
-       "n": 287,
-       "predicted": 0.0368,
-       "landed": 0.0523
+       "n": 209,
+       "predicted": 0.0375,
+       "landed": 0.0431
       },
       {
        "from": 0.1,
        "to": 0.2,
-       "n": 217,
-       "predicted": 0.1524,
-       "landed": 0.1198
+       "n": 71,
+       "predicted": 0.1505,
+       "landed": 0.0986
       },
       {
        "from": 0.2,
        "to": 0.3,
-       "n": 268,
-       "predicted": 0.2506,
-       "landed": 0.2239
+       "n": 66,
+       "predicted": 0.2446,
+       "landed": 0.3182
       },
       {
        "from": 0.3,
        "to": 0.4,
-       "n": 273,
-       "predicted": 0.3511,
-       "landed": 0.359
+       "n": 104,
+       "predicted": 0.3623,
+       "landed": 0.375
       },
       {
        "from": 0.4,
        "to": 0.5,
-       "n": 274,
-       "predicted": 0.4489,
-       "landed": 0.4672
+       "n": 488,
+       "predicted": 0.467,
+       "landed": 0.4488
       },
       {
        "from": 0.5,
        "to": 0.6,
-       "n": 188,
-       "predicted": 0.5431,
-       "landed": 0.5426
+       "n": 517,
+       "predicted": 0.5244,
+       "landed": 0.5126
       },
       {
        "from": 0.6,
        "to": 0.7,
-       "n": 49,
-       "predicted": 0.6343,
-       "landed": 0.7143
-      },
-      {
-       "from": 0.7,
-       "to": 0.8,
-       "n": 1,
-       "predicted": 0.712,
-       "landed": 1.0
-      }
-     ]
-    },
-    "confident": {
-     "n": 1502,
-     "log_loss": 0.5177,
-     "brier": 0.1735,
-     "calibration": [
-      {
-       "from": 0,
-       "to": 0.1,
-       "n": 287,
-       "predicted": 0.0368,
-       "landed": 0.0523
-      },
-      {
-       "from": 0.1,
-       "to": 0.2,
-       "n": 207,
-       "predicted": 0.1517,
-       "landed": 0.1256
-      },
-      {
-       "from": 0.2,
-       "to": 0.3,
-       "n": 266,
-       "predicted": 0.2506,
-       "landed": 0.2218
-      },
-      {
-       "from": 0.3,
-       "to": 0.4,
-       "n": 262,
-       "predicted": 0.3508,
-       "landed": 0.355
-      },
-      {
-       "from": 0.4,
-       "to": 0.5,
-       "n": 263,
-       "predicted": 0.4485,
-       "landed": 0.4677
-      },
-      {
-       "from": 0.5,
-       "to": 0.6,
-       "n": 172,
-       "predicted": 0.5439,
-       "landed": 0.5233
-      },
-      {
-       "from": 0.6,
-       "to": 0.7,
-       "n": 44,
-       "predicted": 0.6336,
-       "landed": 0.7045
-      },
-      {
-       "from": 0.7,
-       "to": 0.8,
-       "n": 1,
-       "predicted": 0.712,
-       "landed": 1.0
-      }
-     ]
-    }
-   },
-   "targets": {
-    "betano": {
-     "picks": 383,
-     "ev_shown": 0.0388,
-     "clv": 0.027,
-     "clv_n": 381,
-     "won": 0.5509,
-     "roi": 0.1035
-    },
-    "fanduel": {
-     "picks": 61,
-     "ev_shown": 0.0223,
-     "clv": -0.0075,
-     "clv_n": 60,
-     "won": 0.377,
-     "roi": -0.0393
-    },
-    "mise": {
-     "picks": 59,
-     "ev_shown": 0.0162,
-     "clv": -0.0013,
-     "clv_n": 58,
-     "won": 0.5763,
-     "roi": 0.1758
-    },
-    "stake": {
-     "picks": 183,
-     "ev_shown": 0.0298,
-     "clv": 0.0254,
-     "clv_n": 182,
-     "won": 0.5574,
-     "roi": 0.0263
-    },
-    "underdog": {
-     "picks": 67,
-     "ev_shown": 0.0157,
-     "clv": -0.0007,
-     "clv_n": 66,
-     "won": 0.4776,
-     "roi": 0.055
-    }
-   }
-  },
-  "nfl": {
-   "graded_through": "2026-10-16 00:15:00+00:00",
-   "books": {
-    "betano": {
-     "n": 55,
-     "log_loss": 0.6933,
-     "brier": 0.25,
-     "vs_rest": {
-      "n": 37,
-      "log_loss_gain": -0.0082
-     }
-    },
-    "bovada": {
-     "n": 41,
-     "log_loss": 0.7026,
-     "brier": 0.2545,
-     "vs_rest": {
-      "n": 29,
-      "log_loss_gain": -0.0044
-     }
-    },
-    "draftkings": {
-     "n": 45,
-     "log_loss": 0.7167,
-     "brier": 0.2614,
-     "vs_rest": {
-      "n": 34,
-      "log_loss_gain": -0.0152
-     }
-    },
-    "fanduel": {
-     "n": 23,
-     "log_loss": 0.7237,
-     "brier": 0.2647,
-     "vs_rest": {
-      "n": 20,
-      "log_loss_gain": -0.0049
-     }
-    },
-    "kalshi": {
-     "n": 92,
-     "log_loss": 0.4971,
-     "brier": 0.1712,
-     "vs_rest": {
-      "n": 71,
-      "log_loss_gain": -0.0011
-     }
-    },
-    "kambi": {
-     "n": 43,
-     "log_loss": 0.6946,
-     "brier": 0.2509,
-     "vs_rest": {
-      "n": 35,
-      "log_loss_gain": -0.0008
-     }
-    },
-    "mise": {
-     "n": 28,
-     "log_loss": 0.7042,
-     "brier": 0.2554,
-     "vs_rest": {
-      "n": 27,
-      "log_loss_gain": -0.0049
-     }
-    },
-    "novig": {
-     "n": 82,
-     "log_loss": 0.5438,
-     "brier": 0.1899,
-     "vs_rest": {
-      "n": 78,
-      "log_loss_gain": 0.003
-     }
-    },
-    "pinnacle": {
-     "n": 68,
-     "log_loss": 0.6544,
-     "brier": 0.2337,
-     "vs_rest": {
-      "n": 49,
-      "log_loss_gain": 0.0037
-     }
-    },
-    "stake": {
-     "n": 83,
-     "log_loss": 0.5997,
-     "brier": 0.2124,
-     "vs_rest": {
-      "n": 73,
-      "log_loss_gain": 0.0064
-     }
-    },
-    "underdog": {
-     "n": 45,
-     "log_loss": 0.6721,
-     "brier": 0.2395,
-     "vs_rest": {
-      "n": 33,
-      "log_loss_gain": -0.0051
-     }
-    }
-   },
-   "fair": {
-    "all": {
-     "n": 140,
-     "log_loss": 0.549,
-     "brier": 0.1924,
-     "calibration": [
-      {
-       "from": 0,
-       "to": 0.1,
-       "n": 22,
-       "predicted": 0.0393,
-       "landed": 0.0
-      },
-      {
-       "from": 0.1,
-       "to": 0.2,
-       "n": 9,
-       "predicted": 0.1502,
-       "landed": 0.1111
-      },
-      {
-       "from": 0.2,
-       "to": 0.3,
-       "n": 9,
-       "predicted": 0.2354,
-       "landed": 0.1111
-      },
-      {
-       "from": 0.3,
-       "to": 0.4,
-       "n": 11,
-       "predicted": 0.3624,
-       "landed": 0.4545
-      },
-      {
-       "from": 0.4,
-       "to": 0.5,
        "n": 37,
-       "predicted": 0.4673,
-       "landed": 0.3784
+       "predicted": 0.6351,
+       "landed": 0.6216
       },
       {
-       "from": 0.5,
-       "to": 0.6,
-       "n": 51,
-       "predicted": 0.525,
-       "landed": 0.451
+       "from": 0.7,
+       "to": 0.8,
+       "n": 3,
+       "predicted": 0.7484,
+       "landed": 0.6667
       },
       {
-       "from": 0.6,
-       "to": 0.7,
+       "from": 0.8,
+       "to": 0.9,
        "n": 1,
-       "predicted": 0.6298,
-       "landed": 0.0
+       "predicted": 0.8266,
+       "landed": 1.0
       }
      ]
     },
     "confident": {
-     "n": 104,
-     "log_loss": 0.4972,
-     "brier": 0.1715,
+     "n": 1105,
+     "log_loss": 0.5593,
+     "brier": 0.1945,
      "calibration": [
       {
        "from": 0,
        "to": 0.1,
-       "n": 22,
-       "predicted": 0.0393,
-       "landed": 0.0
+       "n": 209,
+       "predicted": 0.0375,
+       "landed": 0.0431
       },
       {
        "from": 0.1,
        "to": 0.2,
-       "n": 9,
-       "predicted": 0.1502,
-       "landed": 0.1111
+       "n": 71,
+       "predicted": 0.1505,
+       "landed": 0.0986
       },
       {
        "from": 0.2,
        "to": 0.3,
-       "n": 9,
-       "predicted": 0.2354,
-       "landed": 0.1111
+       "n": 66,
+       "predicted": 0.2446,
+       "landed": 0.3182
       },
       {
        "from": 0.3,
        "to": 0.4,
-       "n": 11,
-       "predicted": 0.3624,
-       "landed": 0.4545
+       "n": 101,
+       "predicted": 0.3617,
+       "landed": 0.3762
       },
       {
        "from": 0.4,
        "to": 0.5,
-       "n": 27,
-       "predicted": 0.4607,
-       "landed": 0.3333
+       "n": 338,
+       "predicted": 0.4602,
+       "landed": 0.4497
       },
       {
        "from": 0.5,
        "to": 0.6,
-       "n": 26,
-       "predicted": 0.5431,
-       "landed": 0.5385
+       "n": 288,
+       "predicted": 0.5357,
+       "landed": 0.5382
+      },
+      {
+       "from": 0.6,
+       "to": 0.7,
+       "n": 28,
+       "predicted": 0.6389,
+       "landed": 0.6429
+      },
+      {
+       "from": 0.7,
+       "to": 0.8,
+       "n": 3,
+       "predicted": 0.7484,
+       "landed": 0.6667
+      },
+      {
+       "from": 0.8,
+       "to": 0.9,
+       "n": 1,
+       "predicted": 0.8266,
+       "landed": 1.0
       }
      ]
     }
    },
    "targets": {
     "betano": {
-     "picks": 33,
-     "ev_shown": 0.0242,
-     "clv": 0.0301,
-     "clv_n": 32,
-     "won": 0.5455,
-     "roi": 0.0973
+     "picks": 475,
+     "ev_shown": 0.0336,
+     "clv": 0.0244,
+     "clv_n": 434,
+     "won": 0.52,
+     "roi": 0.0501
     },
     "fanduel": {
-     "picks": 7,
-     "ev_shown": 0.0311,
-     "clv": 0.0395,
-     "clv_n": 7,
-     "won": 0.4286,
-     "roi": -0.184
+     "picks": 112,
+     "ev_shown": 0.0582,
+     "clv": -0.0166,
+     "clv_n": 83,
+     "won": 0.25,
+     "roi": 0.571
     },
     "mise": {
-     "picks": 6,
-     "ev_shown": 0.0114,
-     "clv": 0.0311,
-     "clv_n": 6,
-     "won": 0.5,
-     "roi": -0.025
+     "picks": 92,
+     "ev_shown": 0.0156,
+     "clv": 0.0163,
+     "clv_n": 83,
+     "won": 0.5109,
+     "roi": -0.0049
     },
     "stake": {
-     "picks": 32,
-     "ev_shown": 0.1918,
-     "clv": 0.1982,
-     "clv_n": 31,
-     "won": 0.5312,
-     "roi": 0.6424
+     "picks": 545,
+     "ev_shown": 0.0464,
+     "clv": 0.037,
+     "clv_n": 491,
+     "won": 0.589,
+     "roi": 0.1128
     },
     "underdog": {
-     "picks": 9,
-     "ev_shown": 0.0145,
-     "clv": 0.009,
-     "clv_n": 9,
-     "won": 0.5556,
-     "roi": 0.0388
+     "picks": 202,
+     "ev_shown": 0.0305,
+     "clv": 0.0059,
+     "clv_n": 169,
+     "won": 0.5297,
+     "roi": -0.038
     }
    }
   },
@@ -548,153 +592,153 @@
    "targets": {}
   },
   "mlb": {
-   "graded_through": "2026-10-17 00:00:00+00:00",
+   "graded_through": "2026-10-18 21:08:00+00:00",
    "books": {
     "betano": {
-     "n": 302,
-     "log_loss": 0.6661,
-     "brier": 0.2366,
+     "n": 519,
+     "log_loss": 0.657,
+     "brier": 0.2324,
      "vs_rest": {
-      "n": 281,
-      "log_loss_gain": -0.0063
+      "n": 489,
+      "log_loss_gain": -0.002
      }
     },
     "bovada": {
-     "n": 90,
-     "log_loss": 0.6742,
-     "brier": 0.2405,
+     "n": 129,
+     "log_loss": 0.6813,
+     "brier": 0.2441,
      "vs_rest": {
-      "n": 88,
-      "log_loss_gain": -0.0013
+      "n": 121,
+      "log_loss_gain": -0.002
      }
     },
     "draftkings": {
-     "n": 391,
-     "log_loss": 0.6203,
-     "brier": 0.2166,
+     "n": 625,
+     "log_loss": 0.6316,
+     "brier": 0.2209,
      "vs_rest": {
-      "n": 207,
-      "log_loss_gain": 0.0004
+      "n": 329,
+      "log_loss_gain": -0.0005
      }
     },
     "fanduel": {
-     "n": 8,
-     "log_loss": 0.6772,
-     "brier": 0.2422,
+     "n": 10,
+     "log_loss": 0.7018,
+     "brier": 0.2543,
      "vs_rest": {
-      "n": 8,
-      "log_loss_gain": -0.0021
+      "n": 10,
+      "log_loss_gain": -0.0075
      }
     },
     "kalshi": {
-     "n": 189,
-     "log_loss": 0.5882,
-     "brier": 0.2003,
+     "n": 286,
+     "log_loss": 0.5848,
+     "brier": 0.1995,
      "vs_rest": {
-      "n": 182,
-      "log_loss_gain": 0.0003
+      "n": 265,
+      "log_loss_gain": -0.0005
      }
     },
     "kambi": {
-     "n": 173,
-     "log_loss": 0.5499,
-     "brier": 0.1825,
+     "n": 243,
+     "log_loss": 0.5437,
+     "brier": 0.1787,
      "vs_rest": {
-      "n": 170,
-      "log_loss_gain": -0.0088
+      "n": 238,
+      "log_loss_gain": -0.0087
      }
     },
     "novig": {
-     "n": 290,
-     "log_loss": 0.6064,
-     "brier": 0.2072,
+     "n": 430,
+     "log_loss": 0.5963,
+     "brier": 0.2043,
      "vs_rest": {
-      "n": 266,
-      "log_loss_gain": 0.0023
+      "n": 382,
+      "log_loss_gain": 0.0014
      }
     },
     "pinnacle": {
-     "n": 85,
-     "log_loss": 0.6362,
-     "brier": 0.2084,
+     "n": 156,
+     "log_loss": 0.6017,
+     "brier": 0.2008,
      "vs_rest": {
-      "n": 74,
-      "log_loss_gain": -0.0198
+      "n": 119,
+      "log_loss_gain": -0.0146
      }
     },
     "stake": {
-     "n": 294,
-     "log_loss": 0.6288,
-     "brier": 0.2186,
+     "n": 572,
+     "log_loss": 0.6308,
+     "brier": 0.2195,
      "vs_rest": {
-      "n": 251,
-      "log_loss_gain": -0.0064
+      "n": 492,
+      "log_loss_gain": -0.0031
      }
     },
     "underdog": {
-     "n": 75,
-     "log_loss": 0.7032,
-     "brier": 0.255,
+     "n": 114,
+     "log_loss": 0.6946,
+     "brier": 0.2507,
      "vs_rest": {
-      "n": 70,
-      "log_loss_gain": 0.0036
+      "n": 109,
+      "log_loss_gain": 0.0052
      }
     }
    },
    "fair": {
     "all": {
-     "n": 500,
-     "log_loss": 0.6012,
-     "brier": 0.2061,
+     "n": 827,
+     "log_loss": 0.604,
+     "brier": 0.208,
      "calibration": [
       {
        "from": 0,
        "to": 0.1,
-       "n": 41,
-       "predicted": 0.0631,
-       "landed": 0.122
+       "n": 65,
+       "predicted": 0.063,
+       "landed": 0.1077
       },
       {
        "from": 0.1,
        "to": 0.2,
-       "n": 70,
-       "predicted": 0.1467,
-       "landed": 0.1429
+       "n": 105,
+       "predicted": 0.1479,
+       "landed": 0.1524
       },
       {
        "from": 0.2,
        "to": 0.3,
-       "n": 81,
-       "predicted": 0.2569,
-       "landed": 0.2716
+       "n": 152,
+       "predicted": 0.2527,
+       "landed": 0.2961
       },
       {
        "from": 0.3,
        "to": 0.4,
-       "n": 103,
-       "predicted": 0.3511,
-       "landed": 0.3689
+       "n": 170,
+       "predicted": 0.3497,
+       "landed": 0.3588
       },
       {
        "from": 0.4,
        "to": 0.5,
-       "n": 93,
-       "predicted": 0.4473,
-       "landed": 0.4409
+       "n": 144,
+       "predicted": 0.4476,
+       "landed": 0.4792
       },
       {
        "from": 0.5,
        "to": 0.6,
-       "n": 80,
-       "predicted": 0.5475,
-       "landed": 0.55
+       "n": 137,
+       "predicted": 0.5478,
+       "landed": 0.562
       },
       {
        "from": 0.6,
        "to": 0.7,
-       "n": 30,
-       "predicted": 0.629,
-       "landed": 0.5
+       "n": 52,
+       "predicted": 0.6309,
+       "landed": 0.6346
       },
       {
        "from": 0.7,
@@ -706,58 +750,58 @@
      ]
     },
     "confident": {
-     "n": 305,
-     "log_loss": 0.5976,
-     "brier": 0.203,
+     "n": 494,
+     "log_loss": 0.5857,
+     "brier": 0.1996,
      "calibration": [
       {
        "from": 0,
        "to": 0.1,
-       "n": 32,
-       "predicted": 0.0582,
-       "landed": 0.1562
+       "n": 56,
+       "predicted": 0.0602,
+       "landed": 0.125
       },
       {
        "from": 0.1,
        "to": 0.2,
-       "n": 39,
-       "predicted": 0.1364,
-       "landed": 0.1026
+       "n": 58,
+       "predicted": 0.1374,
+       "landed": 0.0862
       },
       {
        "from": 0.2,
        "to": 0.3,
-       "n": 42,
-       "predicted": 0.2525,
-       "landed": 0.2381
+       "n": 82,
+       "predicted": 0.2503,
+       "landed": 0.2683
       },
       {
        "from": 0.3,
        "to": 0.4,
-       "n": 50,
-       "predicted": 0.3466,
-       "landed": 0.36
+       "n": 76,
+       "predicted": 0.347,
+       "landed": 0.3816
       },
       {
        "from": 0.4,
        "to": 0.5,
-       "n": 51,
-       "predicted": 0.4567,
-       "landed": 0.5098
+       "n": 82,
+       "predicted": 0.454,
+       "landed": 0.5
       },
       {
        "from": 0.5,
        "to": 0.6,
-       "n": 62,
-       "predicted": 0.5517,
-       "landed": 0.629
+       "n": 95,
+       "predicted": 0.5519,
+       "landed": 0.6211
       },
       {
        "from": 0.6,
        "to": 0.7,
-       "n": 27,
-       "predicted": 0.6312,
-       "landed": 0.4815
+       "n": 43,
+       "predicted": 0.6348,
+       "landed": 0.6047
       },
       {
        "from": 0.7,
@@ -771,36 +815,44 @@
    },
    "targets": {
     "betano": {
-     "picks": 49,
-     "ev_shown": 0.0217,
-     "clv": 0.0006,
-     "clv_n": 48,
-     "won": 0.5714,
-     "roi": -0.0894
+     "picks": 83,
+     "ev_shown": 0.0272,
+     "clv": -0.001,
+     "clv_n": 81,
+     "won": 0.5422,
+     "roi": -0.1491
     },
     "fanduel": {
-     "picks": 5,
-     "ev_shown": 0.0106,
-     "clv": 0.0009,
-     "clv_n": 5,
-     "won": 0.2,
-     "roi": -0.6838
+     "picks": 14,
+     "ev_shown": 0.0221,
+     "clv": -0.0224,
+     "clv_n": 14,
+     "won": 0.2857,
+     "roi": -0.294
+    },
+    "mise": {
+     "picks": 1,
+     "ev_shown": 0.0495,
+     "clv": 0.0649,
+     "clv_n": 1,
+     "won": 0.0,
+     "roi": -1.0
     },
     "stake": {
-     "picks": 19,
-     "ev_shown": 0.0247,
-     "clv": -0.0081,
-     "clv_n": 17,
-     "won": 0.6316,
-     "roi": -0.101
+     "picks": 42,
+     "ev_shown": 0.0327,
+     "clv": -0.0082,
+     "clv_n": 39,
+     "won": 0.5476,
+     "roi": -0.1605
     },
     "underdog": {
-     "picks": 15,
-     "ev_shown": 0.0203,
-     "clv": 0.0137,
-     "clv_n": 14,
-     "won": 0.5333,
-     "roi": -0.0567
+     "picks": 28,
+     "ev_shown": 0.0263,
+     "clv": -0.0045,
+     "clv_n": 26,
+     "won": 0.5,
+     "roi": -0.1068
     }
    }
   }
