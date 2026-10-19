@@ -283,6 +283,12 @@ NOVIG_STATS = {   # Novig market types
     "POWER_PLAY_POINTS": "ppp", "SAVES": "saves", "FIRST_GOAL_SCORER": "first_goals",
 }
 
+PROPHETX_TOURNAMENT = 234   # ProphetX's NHL
+PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19)
+    "player_to_score_a_goal": "goals", "player_total_shots_on_goal": "shots", "player_total_assists": "assists",
+    "player_total_points": "points", "player_powerplay_points": "ppp",
+}
+
 KALSHI_GAME, KALSHI_TOTAL = "KXNHLGAME", "KXNHLTOTAL"
 KALSHI_STATS = {   # Kalshi series, each market a rung ("Tom Wilson: 2+ points"); no shots series
     "KXNHLGOAL": "goals", "KXNHLPTS": "points", "KXNHLAST": "assists", "KXNHLSAVE": "saves",

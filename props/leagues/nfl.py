@@ -335,6 +335,17 @@ NOVIG_STATS = {   # Novig market types
     "FIELD_GOALS_MADE": "fg_made", "KICKING_POINTS": "kicking_points",
 }
 
+PROPHETX_TOURNAMENT = 31   # ProphetX's NFL
+PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19); its "Assists" are tackle assists, not ours
+    "player_total_passing_yards": "pass_yds", "player_total_passing_touchdowns": "pass_tds",
+    "player_total_pass_completions": "pass_cmp", "player_total_passing_attempts": "pass_att",
+    "player_interceptions_thrown": "pass_int", "player_total_passing_rushing_yards": "pass_rush_yds",
+    "player_total_rushing_yards": "rush_yds", "player_total_rushing_attempts": "rush_att",
+    "player_total_rushing_receiving_yards": "rush_rec_yds", "player_total_receiving_yards": "rec_yds",
+    "player_total_receptions": "receptions", "player_total_field_goals_made": "fg_made",
+    "player_total_kicking_points": "kicking_points",
+}
+
 POLYMARKET_SPORT = "nfl"
 POLYMARKET_STATS = {   # its market types ("C.J. Stroud: Passing Yards O/U 149.5", "Bhayshul Tuten: 2+ Touchdowns")
     "passing_yards": "pass_yds", "passing_touchdowns": "pass_tds", "passing_attempts": "pass_att",

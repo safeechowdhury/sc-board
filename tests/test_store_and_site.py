@@ -1,3 +1,4 @@
+import contextlib
 import datetime as dt
 import json
 import os
@@ -58,6 +59,7 @@ class TempStore(unittest.TestCase):
         self.novig = {"markets": []}
         self.kalshi = {"markets": []}
         self.polymarket = {"markets": []}
+        self.prophetx = {"markets": []}
         self.betano = {"markets": []}
         self.stake = {"fixtures": []}
         self.pick6 = {"pickCardsResponse": {}}
@@ -65,36 +67,39 @@ class TempStore(unittest.TestCase):
 
     def build(self, fetch=None, league=nhl, pin_fetch=None, fd_fetch=None, dk_fetch=None, kambi_fetch=None, mise_fetch=None,
               bovada_fetch=None, novig_fetch=None, kalshi_fetch=None, polymarket_fetch=None, betano_fetch=None, stake_fetch=None,
-              pick6_fetch=None, kambi_games=None, **kwargs):
+              pick6_fetch=None, prophetx_fetch=None, kambi_games=None, **kwargs):
         slate, board = site.slate_date, site.board_date
-        with mock.patch.object(site, "slate_date", side_effect=lambda now=None: slate(now or self.now)), \
-             mock.patch.object(site, "board_date", side_effect=lambda games, now=None: board(games, now or self.now)), \
-             mock.patch.object(site, "_utcnow", lambda: self.now), \
-             mock.patch.object(site.underdog, "fetch", fetch or (lambda sport: self.lines)), \
-             mock.patch.object(site.books.pinnacle, "fetch", pin_fetch or (lambda league: self.pin)), \
-             mock.patch.object(site.books.fanduel, "fetch",
-                               lambda league, until=None, now=None: (fd_fetch or (lambda league: self.fd))(league)), \
-             mock.patch.object(site.books.draftkings, "fetch", dk_fetch or (lambda league: self.dk)), \
-             mock.patch.object(site.books.kambi, "fetch", kambi_fetch or (lambda league: self.kambi)), \
-             mock.patch.object(site.kambi, "games", kambi_games or (lambda league: getattr(self, "kambi_games", []))), \
-             mock.patch.object(site.books.mise, "fetch", mise_fetch or (lambda league: self.mise)), \
-             mock.patch.object(site.books.bovada, "fetch",   # asked for the board's games only: until the last one
-                               lambda league, until=None, now=None: (setattr(self, "bovada_until", until),
-                                                           (bovada_fetch or (lambda league: self.bovada))(league))[1]), \
-             mock.patch.object(site.books.novig, "fetch",
-                               lambda league, until=None, now=None: (novig_fetch or (lambda league: self.novig))(league)), \
-             mock.patch.object(site.books.kalshi, "fetch",
-                               lambda league, until=None, now=None: (kalshi_fetch or (lambda league: self.kalshi))(league)), \
-             mock.patch.object(site.books.polymarket, "fetch",
-                               lambda league, until=None, now=None: (polymarket_fetch or (lambda league: self.polymarket))(league)), \
-             mock.patch.object(site.books.betano, "fetch",
-                               lambda league, until=None, now=None: (betano_fetch or (lambda league: self.betano))(league)), \
-             mock.patch.object(site.books.stake, "fetch",
-                               lambda league, until=None, now=None: (stake_fetch or (lambda league: self.stake))(league)), \
-             mock.patch.object(site.books.pick6, "fetch", pick6_fetch or (lambda league, until=None, now=None: self.pick6)), \
-             mock.patch.object(league, "schedule", return_value=self.schedule, create=True), \
-             mock.patch.object(league, "rosters", side_effect=lambda teams, today: self.rosters, create=True), \
-             mock.patch("builtins.print"):
+        with contextlib.ExitStack() as patches:   # more patches than one with statement can nest
+            patches.enter_context(mock.patch.object(site, "slate_date", side_effect=lambda now=None: slate(now or self.now)))
+            patches.enter_context(mock.patch.object(site, "board_date", side_effect=lambda games, now=None: board(games, now or self.now)))
+            patches.enter_context(mock.patch.object(site, "_utcnow", lambda: self.now))
+            patches.enter_context(mock.patch.object(site.underdog, "fetch", fetch or (lambda sport: self.lines)))
+            patches.enter_context(mock.patch.object(site.books.pinnacle, "fetch", pin_fetch or (lambda league: self.pin)))
+            patches.enter_context(mock.patch.object(site.books.fanduel, "fetch",
+                                                    lambda league, until=None, now=None: (fd_fetch or (lambda league: self.fd))(league)))
+            patches.enter_context(mock.patch.object(site.books.draftkings, "fetch", dk_fetch or (lambda league: self.dk)))
+            patches.enter_context(mock.patch.object(site.books.kambi, "fetch", kambi_fetch or (lambda league: self.kambi)))
+            patches.enter_context(mock.patch.object(site.kambi, "games", kambi_games or (lambda league: getattr(self, "kambi_games", []))))
+            patches.enter_context(mock.patch.object(site.books.mise, "fetch", mise_fetch or (lambda league: self.mise)))
+            patches.enter_context(mock.patch.object(site.books.bovada, "fetch",   # asked for the board's games only: until the last one
+                                                    lambda league, until=None, now=None: (setattr(self, "bovada_until", until),
+                                                                                (bovada_fetch or (lambda league: self.bovada))(league))[1]))
+            patches.enter_context(mock.patch.object(site.books.novig, "fetch",
+                                                    lambda league, until=None, now=None: (novig_fetch or (lambda league: self.novig))(league)))
+            patches.enter_context(mock.patch.object(site.books.kalshi, "fetch",
+                                                    lambda league, until=None, now=None: (kalshi_fetch or (lambda league: self.kalshi))(league)))
+            patches.enter_context(mock.patch.object(site.books.polymarket, "fetch",
+                                                    lambda league, until=None, now=None: (polymarket_fetch or (lambda league: self.polymarket))(league)))
+            patches.enter_context(mock.patch.object(site.books.prophetx, "fetch",
+                                                    lambda league, until=None, now=None: (prophetx_fetch or (lambda league: self.prophetx))(league)))
+            patches.enter_context(mock.patch.object(site.books.betano, "fetch",
+                                                    lambda league, until=None, now=None: (betano_fetch or (lambda league: self.betano))(league)))
+            patches.enter_context(mock.patch.object(site.books.stake, "fetch",
+                                                    lambda league, until=None, now=None: (stake_fetch or (lambda league: self.stake))(league)))
+            patches.enter_context(mock.patch.object(site.books.pick6, "fetch", pick6_fetch or (lambda league, until=None, now=None: self.pick6)))
+            patches.enter_context(mock.patch.object(league, "schedule", return_value=self.schedule, create=True))
+            patches.enter_context(mock.patch.object(league, "rosters", side_effect=lambda teams, today: self.rosters, create=True))
+            patches.enter_context(mock.patch("builtins.print"))
             out = site.build(league, **kwargs)
         html = out.read_text()
         return page_data(html)
@@ -414,18 +419,19 @@ class BuildTest(TempStore):
         self.assertEqual([(b["key"], b["short"], b["weight"], b["sharp"], b["target"]) for b in books],
                          [("pinnacle", "Pinnacle", 1.4, True, False),
                           ("fanduel", "FanDuel", 1, True, True),   # sharp, and a site to bet on: left out of fair when picked
-                          ("draftkings", "DK", 1.4, True, False),
+                          ("draftkings", "DK", 1, True, False),
                           ("kambi", "Kambi", 0, False, False),    # shown only: BetRivers' odds
                           ("novig", "Novig", 7, True, False), ("kalshi", "Kalshi", 7, True, False),
-                          ("polymarket", "Poly", 7, True, False),
+                          ("polymarket", "Poly", 5, True, False), ("prophetx", "PX", 5, True, False),
                           ("mise", "Mise", 0, False, True),       # a site to bet on, never part of the fair chance
                           ("betano", "Betano", 0, False, True),   # likewise
                           ("stake", "Stake", 0, False, True),     # likewise
                           ("pick6", "Pick6", 0, False, False),    # shown only: its one flat pick'em price
                           ("bovada", "Bovada", 0, False, False)])  # shown only
         self.assertEqual(data["fair"], {"maxOverround": 0.1,
-                                        "confident": [["novig"], ["kalshi"], ["polymarket"], ["pinnacle", "draftkings", "fanduel"]],
-                                        "estimate": ["novig", "kalshi", "polymarket"]})
+                                        "confident": [["novig"], ["kalshi"], ["polymarket"], ["prophetx"],
+                                                      ["pinnacle", "draftkings", "fanduel"]],
+                                        "estimate": ["novig", "kalshi", "polymarket", "prophetx"]})
         self.assertEqual(books[1]["prices"], {"1|shots": [3.5, 1.95, 1.87]})
         self.assertIsNone(books[0]["fetched"])                  # no Pinnacle prices, so no time to show
 
@@ -435,8 +441,8 @@ class BuildTest(TempStore):
 
         data = self.build(pin_fetch=down, fd_fetch=down, dk_fetch=down, kambi_fetch=down, mise_fetch=down, bovada_fetch=down,
                           novig_fetch=down, kalshi_fetch=down, polymarket_fetch=down, betano_fetch=down,
-                          stake_fetch=down, pick6_fetch=down)
-        self.assertEqual([(b["prices"], b["fetched"]) for b in data["books"]], [({}, None)] * 12)
+                          stake_fetch=down, pick6_fetch=down, prophetx_fetch=down)
+        self.assertEqual([(b["prices"], b["fetched"]) for b in data["books"]], [({}, None)] * 13)
         self.assertEqual(sum(row["ud"] for row in data["rows"]), 2)
 
 

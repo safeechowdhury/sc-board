@@ -39,6 +39,7 @@ LIMITS = {
     "novig": (3, 0.0),
     "pinnacle": (2, 0.0),
     "polymarket": (2, 0.25),   # a new site: two at a time, a pause between
+    "prophetx": (2, 0.25),     # likewise
     "stake": (6, 0.0),         # as many as one league's fetch had at once before
     "pick6": (3, 0.25),        # draftkings' little brother answers a burst like its big one
     "underdog": (2, 0.0),

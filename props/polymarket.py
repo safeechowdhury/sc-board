@@ -30,7 +30,7 @@ from .icons import icon
 from .kalshi import chance, shown   # both sides on offer, within kalshi.SHOW_WIDTH
 
 KEY, NAME, SHORT = "polymarket", "Polymarket", "Poly"
-WEIGHT = 7       # an exchange's two-way prices, read as Kalshi's are (books.py)
+WEIGHT = 5       # an exchange, a step below Novig and Kalshi: not in the study, few props graded (books.py)
 ICON = icon("polymarket.png")   # shown in place of its name in the column heading
 TARGET = False
 BOARD_GAMES_ONLY = True   # the board asks only for its games' (site.build passes `until`)

@@ -17,10 +17,13 @@ chances are averaged in log-odds by WEIGHT. A book whose two sides add up to mor
 1 + MAX_OVERROUND is left out: nobody is making a real price there. A sharp book's one-way
 over at the line caps the over's chance.
 
-The weights follow a study of 252,387 graded closing prop prices: the exchanges (Novig,
-Kalshi) carry most of it, then Pinnacle and DraftKings, then FanDuel. Polymarket, newer and
-not in the study, is weighted as the other exchanges are: its prices are read just as Kalshi's. Kambi's odds also
-serve BetRivers, which the study found the market moves away from, so it is shown only.
+The weights (set 2026-10-19): Novig and Kalshi 7, Polymarket and ProphetX 5, Pinnacle 1.4,
+DraftKings and FanDuel 1, every other book 0. A study of 252,387 graded closing prop prices put
+the exchanges (Novig, Kalshi) well ahead of the sportsbooks; a second comparison (upside.tools,
+2026-10-16) had ProphetX level with Kalshi and FanDuel a little ahead of DraftKings. Polymarket
+and ProphetX were in neither study and have few graded props here, so they sit a step below Novig
+and Kalshi. The board's own graded props (python -m props grade) couldn't yet tell these weights
+apart from equal ones. Kambi's odds also serve BetRivers, which the study found the market moves away from, so it is shown only.
 
 A fair chance is only counted (toward "+EV only", and shaded) when the books behind it
 include one of CONFIDENT's sets: an exchange, or all three of Pinnacle, DraftKings and
@@ -36,14 +39,14 @@ import types
 
 import httpx
 
-from . import betano, bovada, draftkings, fanduel, kalshi, kambi, mise, novig, pick6, pinnacle, polymarket, stake
+from . import betano, bovada, draftkings, fanduel, kalshi, kambi, mise, novig, pick6, pinnacle, polymarket, prophetx, stake
 from .underdog import norm_name
 
-BOOKS = (pinnacle, fanduel, draftkings, kambi, novig, kalshi, polymarket, mise, betano, stake, pick6, bovada)   # the books with odds, the sites to bet on, then the rest
+BOOKS = (pinnacle, fanduel, draftkings, kambi, novig, kalshi, polymarket, prophetx, mise, betano, stake, pick6, bovada)   # the books with odds, the sites to bet on, then the rest
 
 MAX_OVERROUND = 0.10   # a two-way price whose sides imply more than 110% is too wide to count
-CONFIDENT = (("novig",), ("kalshi",), ("polymarket",), ("pinnacle", "draftkings", "fanduel"))   # any one set, all two-way at the line
-ESTIMATE = ("novig", "kalshi", "polymarket")   # off the row's line, still part of fair: estimated from their other lines
+CONFIDENT = (("novig",), ("kalshi",), ("polymarket",), ("prophetx",), ("pinnacle", "draftkings", "fanduel"))   # any one set, all two-way at the line
+ESTIMATE = ("novig", "kalshi", "polymarket", "prophetx")   # off the row's line, still part of fair: estimated from their other lines
 
 
 def devig(a: float, b: float) -> tuple[float, float]:

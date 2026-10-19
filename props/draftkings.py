@@ -27,7 +27,7 @@ from . import matchups, net
 from .icons import icon
 
 KEY, NAME, SHORT = "draftkings", "DraftKings", "DK"
-WEIGHT = 1.4   # its share of the fair chance (books.py)
+WEIGHT = 1     # its share of the fair chance, as FanDuel's (books.py)
 ICON = icon("draftkings.png")   # shown in place of its name in the column heading
 TARGET = False
 LEAGUE_ATTR = "DRAFTKINGS_LEAGUE"

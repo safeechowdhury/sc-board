@@ -11,7 +11,8 @@ curl_cffi impersonating Chrome.
 Only full-game player markets count: a half's or a quarter's ("1st Half
 Receiving Yards"), a longest play and the defensive stats are never board rows.
 Each league's `STAKE_STATS` maps Swish's stat names to ours, and `STAKE_SPORT`
-says the sport's slug on stake.com ("ice-hockey").
+says the sport's slug on stake.com ("ice-hockey"); of the sport's tournaments, the ones named
+for the league (`ours`) are read.
 """
 import datetime as dt
 import json
@@ -42,7 +43,8 @@ HEADERS = {"Referer": f"{SITE}/sports/home", "Origin": SITE, "Content-Type": "ap
 
 INDEX_QUERY = """query SportIndex($sport: String!, $type: SportSearchEnum = popular) {
   slugSport(sport: $sport) {
-    firstTournament: tournamentList(type: $type, limit: 1) {
+    tournamentList(type: $type, limit: 10) {
+      name
       fixtureList(type: $type, limit: 50) {
         slug
         status
@@ -88,6 +90,13 @@ def _post(payload: dict):
     return net.once(("stake-graphql", json.dumps(payload, sort_keys=True)), ask)
 
 
+def ours(league, name: str | None) -> bool:
+    """Whether a tournament in the sport's listing is the league's: its name starts with the
+    league's ("NBA", "NBA Preseason"; not "WNBA"). The sport's most popular tournament isn't
+    always the league's: in October the WNBA Finals rank above the NBA."""
+    return (name or "").upper().startswith(league.KEY.upper())
+
+
 def fetch(league, now: dt.datetime | None = None, until: dt.datetime | None = None) -> dict:
     """The priced player markets of every Swish-enabled game in the league starting from
     `now` until `until` (by default, the end of its slate)."""
@@ -95,7 +104,8 @@ def fetch(league, now: dt.datetime | None = None, until: dt.datetime | None = No
     until = until or now + dt.timedelta(days=league.SLATE_DAYS + 1)
     index = _post({"query": INDEX_QUERY, "operationName": "SportIndex",
                    "variables": {"sport": league.STAKE_SPORT, "type": "popular"}})
-    fixtures = [fixture for tournament in ((index.get("data") or {}).get("slugSport") or {}).get("firstTournament") or []
+    fixtures = [fixture for tournament in ((index.get("data") or {}).get("slugSport") or {}).get("tournamentList") or []
+                if ours(league, tournament.get("name"))
                 for fixture in tournament.get("fixtureList") or [] if fixture.get("status") == "active"]
 
     def started(fixture) -> dt.datetime | None:

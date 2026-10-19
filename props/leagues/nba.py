@@ -242,23 +242,59 @@ DRAFTKINGS_STATS = {   # two-way subcategory names
     "Points O/U": "points", "Rebounds O/U": "rebounds", "Assists O/U": "assists", "Threes O/U": "threes",
     "Pts + Reb + Ast O/U": "pts_rebs_asts", "Pts + Reb O/U": "pts_rebs", "Pts + Ast O/U": "pts_asts",
     "Ast + Reb O/U": "rebs_asts", "Steals O/U": "steals", "Blocks O/U": "blocks",
+    "Steals + Blocks O/U": "blks_stls",
 }
 DRAFTKINGS_LADDERS: dict[str, str] = {}
 
 KAMBI_PATH = "basketball/nba"
-KAMBI_STATS: dict[str, str] = {}   # no NBA player offers in the preseason; the build lists them once they post
+KAMBI_STATS = {   # as Kambi names them (seen 2026-10-19), each count written as N (kambi.criterion)
+    "Points scored by the player - Including Overtime": "points",
+    "N+ Points Scored By The Player - Including Overtime": "points",
+    "Rebounds by the player - Including Overtime": "rebounds",
+    "N+ Rebounds By The Player - Including Overtime": "rebounds",
+    "Assists by the player - Including Overtime": "assists",
+    "N+ Assists By The Player - Including Overtime": "assists",
+    # "3-point field goals made": only threes were seen under this name; a 2-point one would read as N too
+    "N-point field goals made by the player - Including Overtime": "threes",
+    "N+ Three-Point Field Goals Made By The Player - Including Overtime": "threes",
+    "Points, rebounds & assists by the player - Including Overtime": "pts_rebs_asts",
+    "N+ Points, Rebounds & Assists By The Player - Including Overtime": "pts_rebs_asts",
+    "Points & Rebounds by the player - Including Overtime": "pts_rebs",
+    "N+ Points & Rebounds By The Player - Including Overtime": "pts_rebs",
+    "Points & Assists by the player - Including Overtime": "pts_asts",
+    "N+ Points & Assists By The Player - Including Overtime": "pts_asts",
+    "Rebounds & Assists by the player - Including Overtime": "rebs_asts",
+    "N+ Rebounds & Assists By The Player - Including Overtime": "rebs_asts",
+    "Steals by the player - Including Overtime": "steals",
+    "N+ Steals By The Player - Including Overtime": "steals",
+    "Blocks by the player - Including Overtime": "blocks",
+    "N+ Blocks By The Player - Including Overtime": "blocks",
+    "Steals & Blocks by the player - Including Overtime": "blks_stls",
+    "N+ Steals & Blocks By The Player - Including Overtime": "blks_stls",
+}
 
 NOVIG_LEAGUE = "NBA"
 NOVIG_STATS = {
     "POINTS": "points", "REBOUNDS": "rebounds", "ASSISTS": "assists", "THREE_POINTERS_MADE": "threes",
     "REBOUNDS_ASSISTS": "rebs_asts", "POINTS_REBOUNDS_ASSISTS": "pts_rebs_asts", "TRIPLE_DOUBLE": "triple_double",
-    "BLOCKS": "blocks",
+    "BLOCKS": "blocks", "STEALS": "steals", "POINTS_REBOUNDS": "pts_rebs", "POINTS_ASSISTS": "pts_asts",
+    "DOUBLE_DOUBLE": "double_double",
+}
+
+PROPHETX_TOURNAMENT = 132   # ProphetX's NBA
+PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19)
+    "player_total_points": "points", "player_total_rebounds": "rebounds", "player_total_assists": "assists",
+    "player_total_three_pointers_made": "threes", "player_total_points_rebounds_assists": "pts_rebs_asts",
+    "player_total_points_rebounds": "pts_rebs", "player_total_points_assists": "pts_asts",
+    "player_total_rebounds_assists": "rebs_asts", "player_total_steals": "steals", "player_total_blocks": "blocks",
+    "player_total_steals_blocks": "blks_stls", "player_to_record_a_double_double": "double_double",
+    "player_to_record_a_triple_double": "triple_double",
 }
 
 POLYMARKET_SPORT = "nba"
 POLYMARKET_STATS = {"points": "points", "rebounds": "rebounds", "assists": "assists"}   # "Jayson Tatum: Points O/U 26.5"
 KALSHI_GAME, KALSHI_TOTAL = "KXNBAGAME", "KXNBATOTAL"
-KALSHI_STATS = {   # Kalshi series; none had markets up in the preseason, so unconfirmed
+KALSHI_STATS = {   # Kalshi series, checked against its series list 2026-10-19
     "KXNBAPTS": "points", "KXNBAREB": "rebounds", "KXNBAAST": "assists", "KXNBA3PT": "threes",
     "KXNBAPRA": "pts_rebs_asts", "KXNBAPR": "pts_rebs", "KXNBAPA": "pts_asts", "KXNBARA": "rebs_asts",
     "KXNBASTL": "steals", "KXNBABLK": "blocks", "KXNBASTOCK": "blks_stls",
@@ -266,10 +302,18 @@ KALSHI_STATS = {   # Kalshi series; none had markets up in the preseason, so unc
 }
 
 BOVADA_PATH = "basketball/nba"
-BOVADA_STATS: dict[str, str] = {}   # game lines only in the preseason
+BOVADA_STATS = {   # as Bovada names them (seen 2026-10-19): an over/under, then its ladder
+    "Total Points": "points", "Points Milestones": "points",
+    "Total Rebounds": "rebounds", "Rebounds Milestones": "rebounds",
+    "Total Assists": "assists", "Assists Milestones": "assists",
+    "Total Made 3 Points Shots": "threes", "Total Made Threes Milestones": "threes",
+    "Total Points, Rebounds and Assists": "pts_rebs_asts", "Total Points and Rebounds": "pts_rebs",
+    "Total Points and Assists": "pts_asts", "Total Rebounds and Assists": "rebs_asts",
+    "To Record a Triple-Double": "triple_double",
+}
 
-MISE_LEAGUE = "27726"   # "NBA Preseason"; the regular season may carry another tag
-MISE_STATS: dict[str, str] = {}
+MISE_LEAGUE = "584"   # "NBA" in Mise's sport tree ("NBA Preseason" is 27726)
+MISE_STATS: dict[str, str] = {}   # no NBA games posted as of 2026-10-19; the build lists the codes once they are
 
 BETANO_PATH = "/sport/basketball/north-america/nba/441g/"   # its league page on betano.ca
 
@@ -281,6 +325,9 @@ BETANO_STATS = {
     "Points+Rebounds": "pts_rebs", "Points+Assists": "pts_asts",
     "Three Point Shots Scored": "threes", "Double-Double": "double_double",
     "Triple-Double": "triple_double",
+    # each also as "<name> O/U" (betano.parse reads both)
+    "Steals": "steals", "Blocks": "blocks", "Turnovers": "turnovers", "Steals+Blocks": "blks_stls",
+    "3-Point Shots Attempted": "threes_att", "Field Goals Attempted": "fga",
 }
 BETANO_FIRST = {}
 
@@ -288,6 +335,9 @@ STAKE_STATS = {
     "Points": "points", "Rebounds": "rebounds", "Assists": "assists",
     "Three Pointers Made": "threes", "Points+Rebounds+Assists": "pts_rebs_asts",
     "Steals": "steals", "Blocks": "blocks",
+    # the names Stake's NBA games use (seen 2026-10-19)
+    "threesmade": "threes", "points+assists+rebounds": "pts_rebs_asts",
+    "doubledouble": "double_double", "tripledouble": "triple_double",
 }
 PICK6_STATS = {
     "Points": "points", "Rebounds": "rebounds", "Assists": "assists",

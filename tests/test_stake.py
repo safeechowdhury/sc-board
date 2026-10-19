@@ -66,5 +66,14 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(sorted({p["stat"] for p in props}), ["points", "saves", "shots"])
 
 
+class TournamentTest(unittest.TestCase):
+    def test_only_the_leagues_own_tournaments_are_read(self):
+        from props.leagues import nba
+        self.assertTrue(stake.ours(nba, "NBA"))
+        self.assertTrue(stake.ours(nba, "NBA Preseason"))
+        self.assertFalse(stake.ours(nba, "WNBA"))
+        self.assertFalse(stake.ours(nba, None))
+
+
 if __name__ == "__main__":
     unittest.main()

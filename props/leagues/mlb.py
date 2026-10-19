@@ -326,6 +326,16 @@ NOVIG_STATS = {   # Novig market types
     "EARNED_RUNS": "earned_runs", "WALKS": "walks_allowed",
 }
 
+PROPHETX_TOURNAMENT = 109   # ProphetX's MLB
+PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19)
+    "player_total_hits": "hits", "player_total_bases": "total_bases", "player_total_hits_runs_rbis": "hits_runs_rbis",
+    "player_total_runs": "runs", "player_total_rbis": "rbis", "player_total_home_runs": "home_runs",
+    "player_singles": "singles", "player_stolen_bases": "stolen_bases",
+    "player_total_batting_strikeouts": "batter_ks", "player_total_pitching_strikeouts": "strikeouts",
+    "player_total_outs_recorded": "outs", "player_hits_allowed": "hits_allowed",
+    "player_total_earned_runs_allowed": "earned_runs", "player_walks_allowed": "walks_allowed",
+}
+
 POLYMARKET_SPORT = "mlb"
 POLYMARKET_STATS = {   # "Drew Anderson: Strikeouts O/U 2.5"
     "baseball_player_hits": "hits", "baseball_player_total_bases": "total_bases",

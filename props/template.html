@@ -706,8 +706,9 @@ const gameTime = row => {
 // The sites to find EV on: Underdog, and each book marked one (Mise-o-jeu, Betano). A book that is neither sharp
 // nor a target (Bovada) is shown only. A site with an icon shows it in the toggle in place of its name.
 // Books the reader has hidden (Settings, in the sidebar): shared by every league's page. Hiding a book only
-// takes it off the screen; its prices still count toward Fair.
-const hiddenBooks = new Set(prefs.get("hiddenBooks", []));
+// takes it off the screen; its prices still count toward Fair. Until the reader picks, the show-only books
+// and DK Pick6 start hidden.
+const hiddenBooks = new Set(prefs.get("hiddenBooks", ["kambi", "pick6", "bovada"]));
 const ALL_TARGETS = [["ud", "Underdog", "UD", D.udIcon], ...D.books.filter(b => b.target).map(b => [b.key, b.name, b.short, b.icon])];
 let TARGETS = ALL_TARGETS.filter(([key]) => !hiddenBooks.has(key));
 if (!TARGETS.some(([key]) => key === state.target)) state.target = "ud";
