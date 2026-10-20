@@ -208,7 +208,7 @@ main { min-width: 0; padding: 14px 20px 48px 8px; }
       <div class="tabs stats" id="statchips" role="group" aria-label="Stat"></div>
       <div class="controls">
         <label>Stat <select id="stat"></select></label>
-        <label title="Standard: Higher and Lower both offered, both paying a standard pick, at an undiscounted line">Payout <select id="payout">
+        <label title="Standard: every side offered pays the standard pick, one-way lines included">Payout <select id="payout">
           <option value="all">All lines</option><option value="std">Standard only</option><option value="special">Non-standard only</option>
         </select></label>
         <button class="ghost" id="board" type="button" aria-pressed="false" title="Only lines the league's board carries, with hit rates a click away">On the board</button>
@@ -358,10 +358,10 @@ async function load(sport, force) {
   }
 }
 
-// A standard line: Higher and Lower both offered, each paying the standard pick, at a line Underdog hasn't discounted.
+// A standard line: every side offered pays the standard pick (1.87x), a one-way line too.
 function isStandard(l, std) {
-  if (!l.hi || !l.lo || (l.was != null && l.was !== l.line)) return false;
-  return [l.hi, l.lo].every(s => s.mult === 1 && (!s.odds || !std || Math.abs(s.odds - std) < 1e-9));
+  const sides = [l.hi, l.lo].filter(Boolean);
+  return sides.length > 0 && sides.every(s => s.odds && std ? Math.abs(s.odds - std) < 1e-9 : s.mult === 1);
 }
 
 /* ---------- drawing ---------- */

@@ -43,12 +43,12 @@ class ParseTest(unittest.TestCase):
         closed["outcomes"][1]["status"] = "SUSPENDED"
         props, skipped = kambi.parse({"offers": [
             offer("N+ Receiving Yards By The Player - First Half", ("Tyler Warren", "OT_YES", 40000, 2100)),
-            offer("Total Yards of Longest Reception by the Player - Including Overtime",
+            offer("Total Yards of Longest Completed Pass by the Player - Including Overtime",
                   ("Tyler Warren", "OT_OVER", 21500, 1850), ("Tyler Warren", "OT_UNDER", 21500, 1850)),
             closed,
         ]}, nfl)
         self.assertEqual(props, [{"player": "Tyler Warren", "stat": "receptions", "line": 5.5, "over": 1.72, "under": None}])
-        self.assertEqual(dict(skipped), {"Total Yards of Longest Reception by the Player - Including Overtime": 1})
+        self.assertEqual(dict(skipped), {"Total Yards of Longest Completed Pass by the Player - Including Overtime": 1})
 
 
 class FetchTest(unittest.TestCase):

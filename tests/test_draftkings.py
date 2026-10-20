@@ -124,7 +124,7 @@ class FieldTest(unittest.TestCase):
         ])
         self.assertEqual(dict(skipped), {"Last Goalscorer": 1})
 
-    def test_nfl_td_scorers_anytime_and_2_plus_without_first_scorer_or_defenses(self):
+    def test_nfl_td_scorers_anytime_2_plus_and_first_scorer_without_defenses(self):
         def runner(market, player, odds):
             return {"market": market, "name": market, "player": player, "side": "", "line": None, "odds": odds,
                     "main": False, "milestone": None}
@@ -136,9 +136,9 @@ class FieldTest(unittest.TestCase):
         ]}, nfl)
         self.assertEqual([(p["player"], p["stat"], p["line"], p["over"]) for p in props], [
             ("Jahmyr Gibbs", "rush_rec_tds", 0.5, 1.21), ("Jahmyr Gibbs", "rush_rec_tds", 1.5, 2.15),
-            ("Jahmyr Gibbs", "rush_rec_tds", 2.5, 7.0),
+            ("Jahmyr Gibbs", "first_td", 0.5, 4.5), ("Jahmyr Gibbs", "rush_rec_tds", 2.5, 7.0),
         ])
-        self.assertEqual(dict(skipped), {})   # First TD Scorer is passed over quietly
+        self.assertEqual(dict(skipped), {})
 
 if __name__ == "__main__":
     unittest.main()

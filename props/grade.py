@@ -22,7 +22,8 @@ exchange's other lines, and its cap at a one-way over, are not repeated. A prop 
 didn't play (no game in his log that counts toward a prop: league.samples) is void, and a result
 exactly on the line is a push; both are left out.
 
-The summary goes to data/grades.json, rewritten from all the snapshots each time.
+The summary goes to data/grades.json, rewritten from all the snapshots each time, and every
+graded side to history.html (history.py), a local page that is never uploaded.
 """
 import datetime as dt
 import json
@@ -31,7 +32,7 @@ from collections import defaultdict
 
 import polars as pl
 
-from . import books, snapshots, store
+from . import books, history, snapshots, store
 
 OUT = store.DATA / "grades.json"
 WEIGHTS = {book.KEY: book.WEIGHT for book in books.BOOKS}
@@ -81,6 +82,14 @@ def _loss(p: float, hit: bool) -> tuple[float, float]:
 
 def _mean(values: list) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
+
+
+def names(league) -> dict:
+    """{player id as text: name} from the game logs."""
+    df = store.Store(league).load()
+    if df.is_empty():
+        return {}
+    return dict(df.select(pl.col("player_id").cast(pl.String), "name").unique("player_id", keep="last").iter_rows())
 
 
 def results(league) -> dict:
@@ -165,6 +174,7 @@ def grade_league(league) -> dict | None:
                             "predicted": _mean([p for p, _ in inside]), "landed": _mean([float(h) for _, h in inside])})
         return out
 
+    targets, picks = _targets(league, records, close, landed)
     return {
         "graded_through": str(started["start"].max()) if started.height else None,
         "books": {book: {"n": len(s["log_loss"]), "log_loss": _mean(s["log_loss"]), "brier": _mean(s["brier"]),
@@ -172,15 +182,19 @@ def grade_league(league) -> dict | None:
                   for book, s in sorted(book_scores.items())},
         "fair": {kind: {"n": len(s["log_loss"]), "log_loss": _mean(s["log_loss"]), "brier": _mean(s["brier"]),
                         "calibration": calibration(s["cal"])} for kind, s in fair_scores.items()},
-        "targets": _targets(league, records, close, landed),
+        "targets": targets,
+        "picks": picks,
     }
 
 
-def _targets(league, records: pl.DataFrame, close: dict, landed) -> dict:
+def _targets(league, records: pl.DataFrame, close: dict, landed) -> tuple[dict, list]:
     """Every side each betting site offered that the board showed as +EV (Fair confident, at the
-    site's own line), graded at the first publish that showed it."""
+    site's own line), graded at the first publish that showed it. Also every graded side at any EV,
+    for the history page: one record a side, at its first +EV publish if it ever had one, else at
+    the first publish that priced it with a confident Fair."""
     seen = sorted(snapshots.publishes(league)["seen_at"].unique().to_list())
     first: dict = {}   # (target, prop, line, side) -> (odds, ev then)
+    sighted: dict = {}   # the same, at any EV: (odds, ev, fair chance of the side, when)
     for when in seen:
         state = snapshots.as_of(records, when).filter(pl.col("start") > when)
         for prop, lines in _quotes(state).items():
@@ -193,10 +207,14 @@ def _targets(league, records: pl.DataFrame, close: dict, landed) -> dict:
                     if p is None or not confident(used):
                         continue
                     for side, chance, fair_side in (("over", over, p), ("under", under, 1 - p)):
-                        if chance and (target, prop, line, side) not in first:
+                        key = (target, prop, line, side)
+                        if chance and key not in first:
                             odds = 1 / chance
-                            if fair_side * odds - 1 > 0:
-                                first[(target, prop, line, side)] = (odds, fair_side * odds - 1)
+                            ev = fair_side * odds - 1
+                            if ev > 0:
+                                first[key] = (odds, ev)
+                            if ev > 0 or key not in sighted:
+                                sighted[key] = (odds, ev, fair_side, when)
     out: dict = defaultdict(lambda: {"ev": [], "clv": [], "won": [], "profit": []})
     for (target, prop, line, side), (odds, ev) in first.items():
         hit = landed(prop, line)
@@ -210,22 +228,38 @@ def _targets(league, records: pl.DataFrame, close: dict, landed) -> dict:
         p_close, _ = fair(close.get(prop, {}).get(line, {}), leave_out=(target,))
         if p_close is not None:
             s["clv"].append((p_close if side == "over" else 1 - p_close) * odds - 1)
-    return {target: {"picks": len(s["ev"]), "ev_shown": _mean(s["ev"]), "clv": _mean(s["clv"]),
-                     "clv_n": len(s["clv"]), "won": _mean(s["won"]), "roi": _mean(s["profit"])}
-            for target, s in sorted(out.items())}
+    picks = []
+    who = names(league)
+    for (target, prop, line, side), (odds, ev, fair_side, when) in sighted.items():
+        hit = landed(prop, line)
+        if hit is None:
+            continue
+        game, player, stat = prop
+        p_close, _ = fair(close.get(prop, {}).get(line, {}), leave_out=(target,))
+        picks.append({"league": league.KEY, "site": target, "game": game, "player": who.get(player, player),
+                      "stat": league.PROPS.get(stat, (stat,))[0], "line": line, "side": side,
+                      "odds": round(odds, 3), "ev": round(ev, 4), "fair": round(fair_side, 4),
+                      "won": int(hit if side == "over" else not hit), "seen": when.isoformat(timespec="minutes"),
+                      "clv": None if p_close is None else round((p_close if side == "over" else 1 - p_close) * odds - 1, 4)})
+    return ({target: {"picks": len(s["ev"]), "ev_shown": _mean(s["ev"]), "clv": _mean(s["clv"]),
+                      "clv_n": len(s["clv"]), "won": _mean(s["won"]), "roi": _mean(s["profit"])}
+             for target, s in sorted(out.items())}, picks)
 
 
 def grade(leagues: dict) -> dict:
     """Grade every league with game logs and write data/grades.json."""
     summary = {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"), "leagues": {}}
+    picks: list = []
     for key, league in leagues.items():
         if getattr(league, "ODDS_ONLY", False):
             continue   # no game logs to grade against
         found = grade_league(league)
         if found:
+            picks += found.pop("picks")
             summary["leagues"][key] = found
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(summary, indent=1) + "\n")
+    history.write(picks, summary["generated"])
     return summary
 
 

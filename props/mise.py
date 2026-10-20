@@ -37,6 +37,7 @@ BATCH = 10   # games per markets request (each one about a megabyte)
 
 _RUNG = re.compile(r"^(\d+)\+$")                     # "3+"
 _PLAYER = re.compile(r"^(?P<player>.+?) (?:Total|Longest) ")   # "Tyler Warren Total Receptions 5.5"
+_RECORD = re.compile(r"^(?P<player>.+?) to record an? ", re.I)   # "VJ Edgecombe to record a Double-double": a yes
 
 
 def _get(http: httpx.Client, endpoint: str, params: dict) -> dict:
@@ -121,6 +122,11 @@ def parse(payload: dict, league) -> tuple[list[dict], Counter]:
         stat = league.MISE_STATS.get(market["code"]) or _by_name(market["name"], league)
         if not stat:
             skipped[market["code"]] += 1
+            continue
+        record = _RECORD.match(market["name"])
+        if record:   # one player's yes, the over at 0.5
+            props += [{"player": record["player"], "stat": stat, "line": 0.5, "over": _odds(o), "under": None}
+                      for o in market["outcomes"] if _odds(o)]
             continue
         field = _FIELD.match(market["name"])
         if field:

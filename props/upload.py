@@ -12,9 +12,10 @@ repo's .env file (never committed):
     FTP_DIR        the folder the site goes in (default public_html)
 
 Or, with SSH_HOST set (and SSH_USER; SSH_DIR, the site's folder from the SSH home; SSH_PORT;
-SSH_KEY, default ~/.ssh/scboard_whc), over SSH: the whole site as one compressed tar stream,
-unpacked on the server into a new folder and swapped in for the old one (swap_script). Seconds
-instead of minutes, and the folder always holds exactly site/. The rest below is the FTP way.
+SSH_KEY, default ~/.ssh/scboard_whc), over SSH: the files changed since the last upload as one
+compressed tar stream, laid over a hard-linked copy of the live folder on the server and swapped
+in for it (swap_script); the first time, or with --full/--clean, the whole site. What was sent
+is kept in data/cache/uploaded-ssh.json. The host has no rsync. The rest below is the FTP way.
 
 What was sent, and its content hash, is kept in data/cache/uploaded.json, so a run sends only
 new or changed files and deletes the ones site/ no longer has (a player gone from the board).
@@ -30,6 +31,7 @@ import os
 import shlex
 import ssl
 import subprocess
+import tempfile
 from pathlib import Path
 
 import certifi
@@ -162,7 +164,7 @@ def upload(root: Path | None = None, full: bool = False, clean: bool = False, dr
     root = root or site.OUT
     conf = settings()
     if conf.get("SSH_HOST"):
-        return _ssh_upload(root, conf, dry_run)
+        return _ssh_upload(root, conf, dry_run, full or clean)
     now = _hashes(root)
     sent = {} if full or clean or not SENT.exists() else json.loads(SENT.read_text())
     send, delete = plan(now, sent)
@@ -227,20 +229,35 @@ def upload(root: Path | None = None, full: bool = False, clean: bool = False, dr
             + (f" and {len(extra_folders)} folders" if extra_folders else "") + f" to {where}"]
 
 
+SSH_SENT = store.DATA / "cache" / "uploaded-ssh.json"   # what the SSH upload last sent, and its content hash
+
 SWAP = r"""set -e
-dir={dir}; parent=$(dirname "$dir"); name=$(basename "$dir")
+dir={dir}; parent=$(dirname "$dir"); name=$(basename "$dir"); mode={mode}
 cd "$HOME" && mkdir -p "$parent" && cd "$parent"
-rm -rf ".$name.new" ".$name.old" && mkdir ".$name.new"
-tar xzf - -C ".$name.new"
+rm -rf ".$name.new" ".$name.old"
+if [ "$mode" = changed ]; then
+  # only the changed files are coming: start from the live site, hard-linked (nothing copied), and lay them over it
+  [ -d "$name" ] || {{ echo "no live site to update" >&2; exit 3; }}
+  cp -al "$name" ".$name.new" 2>/dev/null || {{
+    rm -rf ".$name.new"; mkdir ".$name.new"
+    (cd "$name" && find . -type d -exec mkdir -p "../.$name.new/{{}}" \; && find . -type f -exec ln "{{}}" "../.$name.new/{{}}" \;)
+  }}
+else
+  mkdir ".$name.new"
+fi
+tar xzUf - -C ".$name.new"   # U: replace a file rather than write into it, so the live site's copy is untouched
+for gone in {gone}; do rm -f -- ".$name.new/$gone"; done
 if [ -d "$name" ]; then
-  for keep in {keep}; do   # what the host keeps there and the site doesn't make
-    if [ -e "$name/$keep" ] && [ ! -e ".$name.new/$keep" ]; then mv "$name/$keep" ".$name.new/"; fi
-  done
+  if [ "$mode" = full ]; then
+    for keep in {keep}; do   # what the host keeps there and the site doesn't make
+      if [ -e "$name/$keep" ] && [ ! -e ".$name.new/$keep" ]; then mv "$name/$keep" ".$name.new/"; fi
+    done
+  fi
   mv "$name" ".$name.old"
 fi
 mv ".$name.new" "$name"
 rm -rf ".$name.old"
-echo "$(find "$name" -type f | wc -l) files in $PWD/$name"
+echo "$(cd "$name" && find . \( {prune} \) -prune -o -type f -print | wc -l | tr -d " ") files in $PWD/$name"
 """
 
 
@@ -249,34 +266,72 @@ def ssh_command(conf: dict) -> list[str]:
             "-o", "ConnectTimeout=30", f"{conf['SSH_USER']}@{conf['SSH_HOST']}"]
 
 
-def swap_script(conf: dict) -> str:
-    """The shell the server runs: unpack the site arriving on stdin into a new folder beside the
-    live one, carry over what the host keeps there (KEEP, FTP_KEEP), then swap the two folders.
-    The folder ends up holding exactly site/, as if emptied first, and the old site is up until
-    the instant the new one replaces it."""
-    keep = KEEP | {name.strip() for name in conf.get("FTP_KEEP", "").split(",") if name.strip()}
-    return SWAP.format(dir=shlex.quote(conf["SSH_DIR"].strip("/")), keep=" ".join(shlex.quote(k) for k in sorted(keep)))
+def _keep(conf: dict) -> list[str]:
+    return sorted(KEEP | {name.strip() for name in conf.get("FTP_KEEP", "").split(",") if name.strip()})
 
 
-def _ssh_upload(root: Path, conf: dict, dry_run: bool) -> list[str]:
-    """The whole site in one compressed stream over SSH (tar), unpacked and swapped in on the server."""
+def swap_script(conf: dict, gone: list[str] = (), changed: bool = False) -> str:
+    """The shell the server runs: unpack what arrives on stdin into a new folder beside the live
+    one, then swap the two folders, so the old site is up until the instant the new one replaces it.
+    Whole site (changed False): the new folder starts empty and gets what the host keeps there
+    (KEEP, FTP_KEEP) carried over, so it ends up holding exactly site/. Changed only: the new
+    folder starts as a hard-linked copy of the live one, gets the changed files laid over it and
+    the `gone` ones deleted. Prints how many site files the folder holds (the kept ones not counted)."""
+    keep = _keep(conf)
+    return SWAP.format(dir=shlex.quote(conf["SSH_DIR"].strip("/")), mode="changed" if changed else "full",
+                       keep=" ".join(shlex.quote(k) for k in keep),
+                       gone=" ".join(shlex.quote(g) for g in gone),
+                       prune=" -o ".join(f"-path {shlex.quote('./' + k)}" for k in keep))
+
+
+MAX_GONE = 1500   # more files gone than this (a new season): send the whole site instead of a list
+
+
+def _ssh_upload(root: Path, conf: dict, dry_run: bool, full: bool = False) -> list[str]:
+    """Over SSH: only the files changed since the last upload (or, the first time or with full,
+    the whole site) in one compressed tar stream, swapped in on the server."""
     where = f"{conf['SSH_HOST']}:~/{conf['SSH_DIR'].strip('/')}"
+    now = _hashes(root)
+    sent = {} if full or not SSH_SENT.exists() else json.loads(SSH_SENT.read_text())
+    send, gone = plan(now, sent)
+    changed = bool(sent) and len(gone) <= MAX_GONE
+    if not changed:
+        send, gone = sorted(now), []
     if dry_run:
         done = subprocess.run(ssh_command(conf) + [f"ls -A ~/{shlex.quote(conf['SSH_DIR'].strip('/'))} | head -50"],
                               capture_output=True, text=True)
         if done.returncode != 0:
             raise SystemExit(f"upload: ssh to {conf['SSH_HOST']} failed: {done.stderr.strip()}")
-        now = sum(1 for path in root.rglob("*") if path.is_file() and path.name != ".DS_Store")
-        return [f"upload (dry run): connected to {where}; it would be replaced by site/ ({now} files). It holds now:"] \
+        what = f"send {len(send)} changed files and delete {len(gone)}" if changed else f"send the whole site ({len(now)} files)"
+        return [f"upload (dry run): connected to {where}; it would {what}. It holds now:"] \
             + [f"    {line}" for line in done.stdout.splitlines()]
-    pack = subprocess.Popen(["tar", "czf", "-", "--exclude=.DS_Store", "-C", str(root), "."],
-                            stdout=subprocess.PIPE, env={**os.environ, "COPYFILE_DISABLE": "1"})   # no macOS ._ files
-    done = subprocess.run(ssh_command(conf) + [f"bash -c {shlex.quote(swap_script(conf))}"],
-                          stdin=pack.stdout, capture_output=True, text=True)
-    pack.stdout.close()
-    if pack.wait() != 0 or done.returncode != 0:
+    if changed and not send and not gone:
+        return ["upload: nothing changed since the last upload"]
+    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as names:
+        names.write("".join(f"{name}\n" for name in send))
+    try:
+        pack = subprocess.Popen(["tar", "czf", "-", "-C", str(root), "-T", names.name],
+                                stdout=subprocess.PIPE, env={**os.environ, "COPYFILE_DISABLE": "1"})   # no macOS ._ files
+        done = subprocess.run(ssh_command(conf) + [f"bash -c {shlex.quote(swap_script(conf, gone, changed))}"],
+                              stdin=pack.stdout, capture_output=True, text=True)
+        pack.stdout.close()
+        packed = pack.wait()
+    finally:
+        os.unlink(names.name)
+    if changed and done.returncode == 3:   # the live folder is gone: send it all
+        return _ssh_upload(root, conf, dry_run, full=True)
+    if packed != 0 or done.returncode != 0:
         raise SystemExit(f"upload: sending the site to {where} failed: {done.stderr.strip()}")
-    return [f"upload: {done.stdout.strip()} ({where})"]
+    out = done.stdout.strip()
+    there = int(out.split()[0]) if out[:1].isdigit() else -1
+    if there == len(now):
+        SSH_SENT.parent.mkdir(parents=True, exist_ok=True)
+        SSH_SENT.write_text(json.dumps(now))
+    else:   # the server doesn't match the record: the next upload sends everything
+        SSH_SENT.unlink(missing_ok=True)
+        out += f" (expected {len(now)}: the next upload sends the whole site)"
+    sent_what = f"{len(send)} changed files" + (f", {len(gone)} deleted" if gone else "") if changed else "the whole site"
+    return [f"upload: {sent_what}; {out} ({where})"]
 
 
 def _save(sent: dict) -> None:

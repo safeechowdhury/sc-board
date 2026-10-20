@@ -328,3 +328,26 @@ class PowerDevigTest(unittest.TestCase):
 
     def test_a_price_with_no_margin_is_left_as_it_is(self):
         self.assertAlmostEqual(books.devig(0.25, 0.75)[0], 0.25, places=12)
+
+
+class EplTest(unittest.TestCase):
+    def test_soccer_names_match_whatever_the_book_calls_them(self):
+        league = gamelines.epl()
+        for name in ("Arsenal FC", "AFC Bournemouth", "Brighton And Hove Albion FC", "Brighton & Hove Albion",
+                     "Nottm Forest", "Man City", "Tottenham Hotspur", "Newcastle"):
+            self.assertIsNotNone(gamelines.team_code(league, name), name)
+        self.assertEqual(gamelines.team_code(league, "Nottingham Forest (Corners)"), None)
+
+    def test_a_three_way_moneyline_is_devigged_and_pooled_by_weight(self):
+        chances = gamelines.devig_n([1 / 7.0, 1 / 4.2, 1 / 1.5])
+        self.assertAlmostEqual(sum(chances), 1, places=9)
+        self.assertTrue(chances[0] < 1 / 7.0 and chances[2] < 1 / 1.5)
+        row = {"threeWay": True, "totalLine": 2.5, "books": {
+            "pinnacle": {"ml": {"home": 7.0, "draw": 4.2, "away": 1.5}, "totals": [], "spreads": []},
+            "kalshi": {"ml": {"home": 7.5, "draw": 4.3, "away": 1.52}, "totals": [], "spreads": []}}}
+        fair = gamelines.fair(row)["ml"]
+        self.assertEqual(set(fair), {"home", "draw", "away"})
+        self.assertAlmostEqual(sum(fair.values()), 1, places=9)
+        row["fair"] = gamelines.fair(row)
+        row["books"]["betano"] = {"ml": {"home": 8.0, "draw": 4.0, "away": 1.5}, "totals": [], "spreads": []}
+        self.assertGreater(gamelines._ev(row)["ml"]["home"], 0)   # 8.0 on a side fair at about 13%

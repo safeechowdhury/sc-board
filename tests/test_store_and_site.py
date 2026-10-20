@@ -384,6 +384,20 @@ class BuildTest(TempStore):
         self.assertNotIn("over", next(row for row in data["rows"] if not row["ud"]))   # missing stays missing
         self.assertIn("mod_deflate", (site.OUT / ".htaccess").read_text())
 
+    def test_the_board_loads_shared_hashed_script_styles_and_icons_and_prices_are_rounded(self):
+        data = self.build()
+        html = (site.OUT / nhl.PAGE).read_text()
+        css, js = re.search(r'href="(assets/board\.[0-9a-f]{8}\.css)"', html), re.search(r'src="(assets/board\.[0-9a-f]{8}\.js)"', html)
+        self.assertTrue(css and js)
+        self.assertTrue((site.OUT / css.group(1)).exists() and (site.OUT / js.group(1)).exists())
+        self.assertIn("JSON.parse", (site.OUT / js.group(1)).read_text())
+        self.assertNotIn("<style>", html)
+        self.assertNotIn("data:image", html)
+        for book in data["books"]:
+            if book["icon"]:
+                self.assertTrue((site.OUT / book["icon"]).exists(), book["icon"])
+        self.assertEqual(site._trim({"a": [1.30106687483, [2.5, 1.0000004]], "b": 3}), {"a": [1.3011, [2.5, 1.0]], "b": 3})
+
     def test_lines_for_a_slate_that_already_finished_are_dropped(self):
         self.lines["games"][0]["scheduled_at"] = "2026-10-01T23:00:00Z"
         self.assertFalse(any(row["ud"] for row in self.build()["rows"]))
@@ -435,7 +449,8 @@ class BuildTest(TempStore):
         self.assertEqual(data["fair"], {"maxOverround": 0.1,
                                         "confident": [["novig"], ["kalshi"], ["polymarket"], ["prophetx"],
                                                       ["pinnacle", "draftkings", "fanduel"]],
-                                        "estimate": ["novig", "kalshi", "polymarket", "prophetx"]})
+                                        "estimate": ["novig", "kalshi", "polymarket", "prophetx"],
+                                        "dist": nhl.FAIR_DIST})   # the stats read from a count distribution
         self.assertEqual(books[1]["prices"], {"1|shots": [3.5, 1.95, 1.87]})
         self.assertIsNone(books[0]["fetched"])                  # no Pinnacle prices, so no time to show
 
@@ -464,7 +479,7 @@ class NflBuildTest(TempStore):
         self.lines = underdog_payload([{"name": "Puka Nacua", "team": "LAR", "stat": "receiving_yds", "value": 80.5,
                                         "position": "WR", "sport": "NFL",
                                         "options": [("higher", 1.87, 1.0), ("lower", 1.87, 1.0)]},
-                                       {"name": "Puka Nacua", "team": "LAR", "stat": "receiving_long", "value": 24.5,
+                                       {"name": "Puka Nacua", "team": "LAR", "stat": "passing_long", "value": 24.5,
                                         "position": "WR", "sport": "NFL", "options": [("higher", 1.87, 1.0)]}])
         self.lines["games"][0].update(title="LAR @ PHI", away_team_id="lar", home_team_id="phi",
                                       scheduled_at="2026-10-04T17:00:00Z")
@@ -552,6 +567,39 @@ class NflBuildTest(TempStore):
         data = self.build(league=nfl)
         posted = [(row["stat"], row["line"]) for row in data["rows"] if row["ud"]]
         self.assertEqual(posted, [("two_tds", 1.5)])
+
+    # 1st TD: a price comparison only, with no hit rates (the game logs don't say who scored first)
+    def test_a_player_a_book_prices_to_score_first_gets_a_price_only_row(self):
+        self.dk = {"subcategories": [{"name": "TD Scorer", "selections": [
+            {"market": "First TD Scorer", "name": "First TD Scorer", "player": "Puka Nacua", "side": "first scorer",
+             "line": None, "odds": 8.0, "main": False, "milestone": None}]}]}
+        data = self.build(league=nfl)
+        row = {(row["name"], row["stat"]): row for row in data["rows"]}[("Puka Nacua", "first_td")]
+        self.assertEqual((row["line"], row["ud"]), (0.5, False))
+        self.assertFalse({"last", "l5", "l10", "avg"} & row.keys())
+        self.assertEqual({b["key"]: b["prices"] for b in data["books"]}["draftkings"]["00-0039075|first_td"], [0.5, 8.0, None])
+        self.assertEqual(data["priceOnly"], ["first_td", "longest_rec", "longest_rush"])
+
+    def test_a_longest_reception_only_the_books_price_gets_a_row_at_their_market_line(self):
+        ou = lambda line, over, under: [
+            {"market": "m", "name": "Puka Nacua Longest Reception O/U", "player": "Puka Nacua", "side": side, "line": line,
+             "odds": odds, "main": True, "milestone": None} for side, odds in (("over", over), ("under", under))]
+        self.dk = {"subcategories": [{"name": "Longest Reception O/U", "selections": ou(24.5, 1.87, 1.95)}]}
+        data = self.build(league=nfl)
+        row = {(row["name"], row["stat"]): row for row in data["rows"]}[("Puka Nacua", "longest_rec")]
+        self.assertEqual((row["line"], row["ud"]), (24.5, False))
+        self.assertNotIn("last", row)
+        self.assertEqual({b["key"]: b["prices"] for b in data["books"]}["draftkings"]["00-0039075|longest_rec"], [24.5, 1.87, 1.95])
+
+    def test_underdogs_first_td_line_is_a_price_only_row(self):
+        self.lines = underdog_payload([{"name": "Puka Nacua", "team": "LAR", "stat": "period_first_touchdown_scored",
+                                        "value": 0.5, "position": "WR", "sport": "NFL", "options": [("higher", 9.0, 4.5)]}])
+        self.lines["games"][0].update(title="LAR @ PHI", away_team_id="lar", home_team_id="phi",
+                                      scheduled_at="2026-10-04T17:00:00Z")
+        data = self.build(league=nfl)
+        row = next(row for row in data["rows"] if row["ud"])
+        self.assertEqual((row["stat"], row["line"]), ("first_td", 0.5))
+        self.assertNotIn("last", row)
 
 
     def test_viewer_page_lists_underdogs_sports_and_each_league_links_its_players(self):

@@ -33,6 +33,9 @@ An ESTIMATE book (an exchange) with no two-way price at the row's line still cou
 other lines: its devigged chances are read across in log-odds between the lines either side of
 the row's, or moved from its nearest line by the slope the books' ladders show for that player.
 It counts for less the further it reaches, and the row's fair is marked an estimate.
+Fair and EV are also worked out at a site's own line when the site has only another one; there
+only, a league's FAIR_DIST stats (low counts) read the exchanges' other lines through a Poisson or
+negative binomial fitted to them (template.html distOver). The Fair column always uses the ladders.
 """
 import math
 import types
@@ -40,7 +43,7 @@ import types
 import httpx
 
 from . import bet99, betano, bovada, draftkings, fanduel, kalshi, kambi, mise, novig, pick6, pinnacle, polymarket, prophetx, stake
-from .underdog import norm_name
+from .underdog import _NICKNAME, norm_name
 
 BOOKS = (pinnacle, fanduel, draftkings, kambi, novig, kalshi, polymarket, prophetx, mise, betano, stake, pick6, bovada, bet99)   # the books with odds, the sites to bet on, then the rest
 
@@ -115,6 +118,18 @@ def with_fixed(props: list[dict], league) -> list[dict]:
                     if prop["stat"] == column and prop["line"] == line]
 
 
+# short first names that neither begin nor end the full one
+_NICKNAMES = {"nick": {"nicholas", "nicolas", "nickolas"}, "gabe": {"gabriel"}, "zach": {"zachary"},
+              "mike": {"michael"}, "jake": {"jacob"}, "joe": {"joseph"}, "matt": {"matthew"}}
+
+
+def _short_for(a: str, b: str) -> bool:
+    """Mitch/Mitchell, Drew/Andrew: one first name begins or ends the other; Nick/Nicholas,
+    Gabe/Gabriel: a known nickname."""
+    short, full = sorted((a, b), key=len)
+    return len(short) >= 3 and (full.startswith(short) or full.endswith(short) or full in _NICKNAMES.get(short, ()))
+
+
 def prices(props: list[dict], rows: list[dict], anytime=()) -> tuple[dict, int]:
     """A book's [line, over, under] keyed like the board's watchlist ("<player id or name>|<stat>"),
     plus how many props found no row. A one-way price has no under (None).
@@ -132,21 +147,47 @@ def prices(props: list[dict], rows: list[dict], anytime=()) -> tuple[dict, int]:
     alternate line. Its two-way prices at other lines still follow as the fourth item.
     """
     owners: dict[tuple, dict] = {}
+    surnames: dict[tuple, dict] = {}   # (surname, stat) -> {owner: (team, line, first name)}
     teams = {row["team"] for row in rows}
     for row in rows:
-        owners.setdefault((norm_name(row["name"]), row["stat"]), {}).setdefault(
-            row["id"] if row["id"] is not None else row["name"], (row["team"], row["line"]))
+        owner, seen = row["id"] if row["id"] is not None else row["name"], (row["team"], row["line"])
+        name = norm_name(_NICKNAME.sub(" ", row["name"]))
+        nickname = _NICKNAME.search(row["name"])   # the NHL lists "Anthony-John (AJ) Greer"; books say "A.J. Greer"
+        for key in {norm_name(row["name"]), name} | ({norm_name(f"{nickname.group(1)} {name.split()[-1]}")} if nickname and name else set()):
+            owners.setdefault((key, row["stat"]), {}).setdefault(owner, seen)
+        if len(name.split()) > 1:
+            surnames.setdefault((name.split()[-1], row["stat"]), {}).setdefault(owner, (*seen, name.split()[0]))
+
+    def same_team(found, prop):
+        return {owner: seen for owner, seen in found.items() if seen[0] == prop["team"]} if prop.get("team") in teams else found
+
+    def owner_of(prop):
+        found = same_team(owners.get((norm_name(prop["player"]), prop["stat"]), {}), prop)
+        if found:
+            return found
+        # Nick Paul for Nicholas Paul, Gabe Perreault for Gabriel: same surname and stat, and one
+        # first name short for the other, or the two starting alike
+        parts = norm_name(prop["player"]).split()
+        if len(parts) < 2:
+            return {}
+        return same_team({owner: seen[:2] for owner, seen in surnames.get((parts[-1], prop["stat"]), {}).items()
+                          if _short_for(parts[0], seen[2])}, prop)
+
+    # a row a book prices under the board's own spelling never takes a near name's prices
+    exact = {(owner, prop["stat"]) for prop in props
+             for owner in same_team(owners.get((norm_name(prop["player"]), prop["stat"]), {}), prop)}
     best: dict[str, tuple] = {}
     two_way_at: dict[str, dict] = {}
     missed = 0
     for prop in props:
-        found = owners.get((norm_name(prop["player"]), prop["stat"]), {})
-        if prop.get("team") in teams:
-            found = {owner: seen for owner, seen in found.items() if seen[0] == prop["team"]}
+        found = owner_of(prop)
         if len(found) != 1:
             missed += 1
             continue
         (owner, (_, line)), = found.items()
+        if (owner, prop["stat"]) in exact and (norm_name(prop["player"]), prop["stat"]) not in owners:
+            missed += 1
+            continue
         two_way = prop["under"] is not None
         rank = (prop["line"] == line, two_way, -abs(prop["line"] - line))
         key = f"{owner}|{prop['stat']}"

@@ -80,6 +80,25 @@ class PricesTest(unittest.TestCase):
         prop = {"player": "Will Smith", "team": "LAD", "stat": "hits", "line": 0.5, "over": 1.6, "under": 2.3}
         self.assertEqual(books.prices([prop], rows), ({"a|hits": [0.5, 1.6, 2.3]}, 0))
 
+    def test_a_book_spelling_a_name_its_own_way_still_finds_the_row(self):
+        rows = [{"id": "p", "name": "Nicholas Paul", "stat": "shots", "team": "TOR", "line": 1.5},
+                {"id": "g", "name": "Anthony-John (AJ) Greer", "stat": "points", "team": "ANA", "line": 0.5},
+                {"id": "w", "name": "Alexander Wennberg", "stat": "shots", "team": "SJS", "line": 1.5}]
+        props = [{"player": name, "stat": stat, "line": line, "over": 1.9, "under": 1.9}
+                 for name, stat, line in (("Nick Paul", "shots", 1.5), ("A.J. Greer", "points", 0.5), ("Alex Wennberg", "shots", 1.5))]
+        self.assertEqual(books.prices(props, rows)[0], {"p|shots": [1.5, 1.9, 1.9], "g|points": [0.5, 1.9, 1.9], "w|shots": [1.5, 1.9, 1.9]})
+
+    def test_a_near_name_never_takes_another_players_row(self):
+        rows = [{"id": "j", "name": "Jack Hughes", "stat": "shots", "team": "NJ", "line": 2.5}]
+        exact = {"player": "Jack Hughes", "stat": "shots", "line": 2.5, "over": 1.8, "under": 2.0}
+        cousins = [{**exact, "player": name, "line": 0.5, "over": 1.1, "under": 6.0} for name in ("Jacob Hughes", "Luke Hughes")]
+        self.assertEqual(books.prices(cousins, rows), ({}, 2))
+        self.assertEqual(books.prices([exact, *cousins], rows), ({"j|shots": [2.5, 1.8, 2.0]}, 2))
+        # a nickname that matches still loses to the board's own spelling at the same book
+        rows = [{"id": "n", "name": "Nicholas Paul", "stat": "shots", "team": "TOR", "line": 1.5}]
+        both = [{**exact, "player": "Nicholas Paul", "line": 1.5}, {**exact, "player": "Nick Paul", "line": 1.5, "over": 9.0}]
+        self.assertEqual(books.prices(both, rows), ({"n|shots": [1.5, 1.8, 2.0]}, 1))
+
 
     def test_a_row_gets_the_price_at_its_line_before_any_other(self):
         rows = [{"id": "z", "name": "Zay Flowers", "stat": "receptions", "team": "BAL", "line": 4.5}]

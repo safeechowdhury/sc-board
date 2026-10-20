@@ -1,4 +1,5 @@
-"""python -m props publish: refresh every board and the lines page at once, then zip the site.
+"""python -m props publish: refresh every board and the lines page at once, then zip the site
+(or, with --upload, send it to the host instead).
 
 Two zips land at the repo root, each with the site's files at its top level:
 
@@ -154,8 +155,9 @@ def publish(leagues: dict, offline: bool = False, logs: bool = False, upload: bo
             print(f"grade: FAILED: {type(e).__name__}: {e}")
     build_all(leagues, offline, record=not offline)   # a saved fetch's prices aren't new: nothing to keep
     built = time.monotonic()
-    for message in zip_site():
-        print(f"publish: {message}")
+    if not upload:   # the zips are for uploading by hand; --upload sends site/ itself
+        for message in zip_site():
+            print(f"publish: {message}")
     print(f"publish: built in {built - started:.1f}s, zipped in {time.monotonic() - built:.1f}s; requests: "
           + ", ".join(f"{name} {n}" for name, n in sorted(net.asked.items())))
     if upload:

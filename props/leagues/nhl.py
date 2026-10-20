@@ -320,6 +320,13 @@ BOVADA_STATS = {
     "Player To Score Nst Goal": "first_goals",   # "Player To Score 1st Goal"
 }
 
+# How a sharp book's price is moved to a betting site's other line, for its EV (template.html estimateAt): stats here
+# are read from a fitted count distribution, "poisson" or a negative binomial of that size (its
+# variance mean + mean^2/size); the rest move in log-odds along the books' ladders. Chosen 2026-10-19
+# by backtesting against the sharp books' own alternate lines on the day's boards: where a count
+# beat the ladders. The market's ladders are far less spread than the game logs (they know the minutes).
+FAIR_DIST = {"shots": "poisson", "goals": "poisson", "assists": "poisson", "points": 50}   # 1.3-2.2 vs 1.7-3.5
+
 MISE_LEAGUE = "574"
 # Mise-o-jeu group codes, two-way ("..._OVER_UNDER_PLAYER") and one-way ladders alike
 MISE_STATS = {

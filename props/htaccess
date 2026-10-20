@@ -5,9 +5,17 @@
   AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json
 </IfModule>
 
-# The pages change every publish: have browsers check for a new copy rather than show a stale one.
+# The pages and player files change every publish: have browsers check for a new copy rather than show a stale one.
 <IfModule mod_headers.c>
-  <FilesMatch "\.html$">
+  <FilesMatch "\.(html|js)$">
     Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+# The book icons and the board's script and styles carry a hash of their contents in their names
+# (img/draftkings.1a2b3c4d.png, assets/board.1a2b3c4d.js): a change is a new name, so browsers keep them a year.
+<IfModule mod_headers.c>
+  <FilesMatch "\.[0-9a-f]{8}\.(png|webp|css|js)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
 </IfModule>

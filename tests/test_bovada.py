@@ -66,12 +66,20 @@ class ParseTest(unittest.TestCase):
 
     def test_unmapped_markets_are_counted_by_name(self):
         props, skipped = bovada.parse({"markets": [
-            market("Longest Reception - Chris Olave (NOR)", [("Over", "O", "24.5", "1.87"), ("Under", "U", "24.5", "1.87")]),
-            market("Player to Record a 20+ Yard Reception", [("Chris Olave (NOR)", "X", None, "1.60")]),
+            market("Longest Pass Completion - Spencer Rattler (NOR)", [("Over", "O", "34.5", "1.87"), ("Under", "U", "34.5", "1.87")]),
+            market("Most Receiving Yards", [("Chris Olave (NOR)", "X", None, "6.00")]),
             market("Anytime 2nd Half TD Scorer", [("Chris Olave (NOR)", "X", None, "3.50")]),   # part of a game: skipped quietly
         ]}, nfl)
         self.assertEqual(props, [])
-        self.assertEqual(dict(skipped), {"Longest Reception": 1, "Player to Record a N+ Yard Reception": 1})
+        self.assertEqual(dict(skipped), {"Longest Pass Completion": 1, "Most Receiving Yards": 1})
+
+    def test_longest_reception_over_under_and_an_n_plus_yard_catch(self):
+        props, _ = bovada.parse({"markets": [
+            over_under("Longest Reception - Chris Olave (NOR)", "24.5", "1.87", "1.87"),
+            market("Player to Record a 20+ Yard Reception", [("Chris Olave (NOR)", "X", None, "1.60")]),
+        ]}, nfl)
+        self.assertEqual([(p["stat"], p["line"], p["over"], p["under"]) for p in props],
+                         [("longest_rec", 24.5, 1.87, 1.87), ("longest_rec", 19.5, 1.6, None)])
 
 
 class FetchTest(unittest.TestCase):

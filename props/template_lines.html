@@ -70,7 +70,11 @@
   .best { color: var(--hit); font-weight: 700; }
   .none { color: var(--rule); }
   .sep { color: var(--rule); padding: 0 1px; }
-  td.fair, td.ev { font-size: 12px; min-width: 88px; }
+  td.fair, td.ev { font-size: 12px; min-width: 88px; white-space: nowrap; }
+  .grid.three .bk .ml { font-size: 12.5px; letter-spacing: -.2px; }   /* soccer: three prices a cell */
+  .grid.three .bk .sep { padding: 0; }
+  .gridwrap:has(.three) { overflow-x: auto; }   /* nine books of three prices can outgrow the screen: the table swipes, not the page */
+  .grid.three td { padding-left: 3px; padding-right: 3px; }
   td.fair { color: var(--ink-2); }
   .up { color: var(--hit); font-weight: 700; }
   .down { color: var(--ink-3); }
@@ -87,6 +91,22 @@
   .play .evv { color: var(--hit); font-weight: 700; white-space: nowrap; }
   footer { color: var(--ink-3); font-size: 12px; padding: 14px 2px; }
   @media (max-width: 900px) { body { font-size: 13px; } .bk .sp { display: none; } }
+  /* phone: the table swipes inside its own box, game column pinned, instead of widening the whole page */
+  @media (max-width: 760px) {
+    header { padding: 8px 12px; gap: 6px 10px; }
+    nav#tabs { margin-left: 0 !important; width: 100%; overflow-x: auto; scrollbar-width: none; }
+    nav#tabs::-webkit-scrollbar { display: none; }
+    nav#tabs button { flex: none; padding: 6px 14px; font-size: 14px; }
+    .valuebar { position: static; padding: 8px 12px; }
+    .valuebar .hint { display: none; }
+    main { padding: 8px 10px 60px; }
+    .gridwrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; }
+    .gridwrap .grid { border: 0; border-radius: 0; overflow: visible; }
+    .grid thead th { position: static; }
+    .grid .game { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--rule); }
+    td.game { min-width: 112px; }
+    .value .plays { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -107,12 +127,17 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", 
 const none = `<span class="none">&ndash;</span>`;
 const sep = `<span class="sep">/</span>`;
 
-// each book's cell: moneyline pair over the total pair, spreads muted below
+// a moneyline's sides in the order shown: away / home, or soccer's home / draw / away
+const mlSides = game => game.threeWay ? ["home", "draw", "away"] : ["away", "home"];
+const matchup = game => game.threeWay ? `${game.home} vs ${game.away}` : `${game.away} @ ${game.home}`;
+const sideName = (game, side) => side === "draw" ? "Draw" : "ML " + game[side];
+
+// each book's cell: moneyline over the total pair, spreads muted below
 function bestMarks(game) {
   const best = {};
   for (const b of Object.values(game.books)) {
-    if (b.ml && b.ml.away != null) best.away = Math.max(best.away ?? -Infinity, b.ml.away);
-    if (b.ml && b.ml.home != null) best.home = Math.max(best.home ?? -Infinity, b.ml.home);
+    for (const side of mlSides(game))
+      if (b.ml && b.ml[side] != null) best[side] = Math.max(best[side] ?? -Infinity, b.ml[side]);
     const t = (b.totals || [])[0];
     if (t && t.over != null) best.over = Math.max(best.over ?? -Infinity, t.over);
     if (t && t.under != null) best.under = Math.max(best.under ?? -Infinity, t.under);
@@ -124,18 +149,19 @@ function cell(game, key, marks) {
   const b = game.books[key];
   if (!b) return `<td class="none">&ndash;</td>`;
   const t = (b.totals || [])[0], sp = (b.spreads || [])[0];
-  const ml = b.ml ? `<div class="ml">${b.ml.away != null ? `<span class="${marks("away", b.ml.away)}">${fmt(b.ml.away)}</span>` : none}`
-      + ` ${sep} ${b.ml.home != null ? `<span class="${marks("home", b.ml.home)}">${fmt(b.ml.home)}</span>` : none}</div>` : `<div class="ml">${none}</div>`;
+  const ml = b.ml ? `<div class="ml">${mlSides(game).map(side => b.ml[side] != null
+      ? `<span class="${marks(side, b.ml[side])}">${fmt(b.ml[side])}</span>` : none).join(` ${sep} `)}</div>` : `<div class="ml">${none}</div>`;
   const total = t ? `<div class="tot"><b>${t.line}</b> ${t.over != null ? `<span class="${marks("over", t.over)}">${fmt(t.over)}</span>` : none}`
       + ` ${sep} ${t.under != null ? `<span class="${marks("under", t.under)}">${fmt(t.under)}</span>` : none}</div>` : `<div class="tot">${none}</div>`;
   const spread = sp ? `<div class="sp">${sp.line > 0 ? "+" : ""}${sp.line} &middot; ${fmt(sp.away)} ${sep} ${fmt(sp.home)}</div>` : "";
   return `<td class="bk">${ml}${total}${spread}</td>`;
 }
 
-function fairCell(f) {
+function fairCell(game) {
+  const f = game.fair;
   if (!f || !f.ml) return `<td class="fair">${none}</td>`;
   const total = f.total ? `<div>${pct(f.total.over)} ${sep} ${pct(f.total.under)}</div>` : `<div>${none}</div>`;
-  return `<td class="fair"><div>${pct(f.ml.away)} ${sep} ${pct(f.ml.home)}</div>${total}</td>`;
+  return `<td class="fair"><div>${mlSides(game).map(side => pct(f.ml[side])).join(` ${sep} `)}</div>${total}</td>`;
 }
 
 // EV of every side against the chosen book, fair chance times the book's decimal price minus one
@@ -143,18 +169,18 @@ function evSides(game, bookKey) {
   const fair = game.fair, b = game.books[bookKey];
   if (!fair || !b) return null;
   const out = {};
-  if (b.ml && b.ml.away != null && b.ml.home != null && fair.ml)
-    out.ml = { away: fair.ml.away * b.ml.away - 1, home: fair.ml.home * b.ml.home - 1 };
+  if (b.ml && fair.ml && mlSides(game).every(side => b.ml[side] != null))
+    out.ml = Object.fromEntries(mlSides(game).map(side => [side, fair.ml[side] * b.ml[side] - 1]));
   const t = (b.totals || [])[0];
   if (t && t.line === game.totalLine && fair.total && t.over != null && t.under != null)
     out.total = { over: fair.total.over * t.over - 1, under: fair.total.under * t.under - 1 };
   return Object.keys(out).length ? out : null;
 }
-function evCell(ev) {
+function evCell(ev, game) {
   if (!ev) return `<td class="ev">${none}</td>`;
   const v = p => p == null ? none : `<span class="${p >= 0 ? "up" : "down"}">${p >= 0 ? "+" : ""}${(100 * p).toFixed(1)}%</span>`;
   const total = ev.total ? `<div>${v(ev.total.over)} ${sep} ${v(ev.total.under)}</div>` : `<div>${none}</div>`;
-  return `<td class="ev"><div>${v(ev.ml ? ev.ml.away : null)} ${sep} ${v(ev.ml ? ev.ml.home : null)}</div>${total}</td>`;
+  return `<td class="ev"><div>${mlSides(game).map(side => v(ev.ml ? ev.ml[side] : null)).join(` ${sep} `)}</div>${total}</td>`;
 }
 
 const SIDE_NAMES = { away: "ML away", home: "ML home", over: "Over", under: "Under" };
@@ -167,8 +193,7 @@ function topPlays(lg, bookKey) {
     // its total counts only at the line the fair chance is for (as in the build's EV); a book
     // without one has no total plays
     const t = (b.totals || [])[0], fairTotal = t && t.line === game.totalLine ? game.fair.total : null;
-    const parts = [["away", b.ml && b.ml.away, "ML " + game.away, game.fair.ml],
-                   ["home", b.ml && b.ml.home, "ML " + game.home, game.fair.ml],
+    const parts = [...mlSides(game).map(side => [side, b.ml && b.ml[side], sideName(game, side), game.fair.ml]),
                    ["over", t && t.over, t ? `Over ${t.line}` : "", fairTotal],
                    ["under", t && t.under, t ? `Under ${t.line}` : "", fairTotal]];
     for (const [side, price, label, fair] of parts) {
@@ -186,7 +211,7 @@ function leagueHtml(lg) {
       `<th class="${b.key === "betano" ? "featured" : ""}${b.key === targetBook ? " valcol" : ""}" title="${esc(b.name)}">${b.icon ? `<img class="bookicon head" src="${b.icon}" alt="${esc(b.name)}">` : esc(b.short)}${b.sharp ? ` <span class="sharp" title="counts toward the fair line, weight ${b.weight}">&bull;</span>` : ""}</th>`).join("")
       + `<th rowspan="2" title="the books' no-vig chance of each side, weighted: Kalshi and FanDuel 1.1, Pinnacle and DraftKings 1">Fair</th>`
       + `<th rowspan="2" title="what ${esc((books.find(b => b.key === targetBook) || {}).name || "")} pays against the fair chance">EV vs ${esc((books.find(b => b.key === targetBook) || {}).short || "")}</th></tr>`
-      + `<tr class="sub">${books.map(() => `<th>ML &middot; total</th>`).join("")}</tr>`;
+      + `<tr class="sub">${books.map(() => `<th>${lg.threeWay ? "1 X 2" : "ML"} &middot; total</th>`).join("")}</tr>`;
   const rows = [];
   let lastDate = "";
   for (const game of lg.games) {
@@ -195,21 +220,21 @@ function leagueHtml(lg) {
     if (date !== lastDate) { rows.push(`<tr class="date"><td colspan="${books.length + 3}">${date}</td></tr>`); lastDate = date; }
     const time = start.toLocaleTimeString("en-CA", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
     const marks = bestMarks(game);
-    rows.push(`<tr><td class="game"><div class="t">${esc(game.away)} @ ${esc(game.home)}</div>`
+    rows.push(`<tr><td class="game"><div class="t">${esc(matchup(game))}</div>`
         + `<div class="s">${time} ET</div>${game.totalLine ? `<div class="tot">total ${game.totalLine}</div>` : ""}</td>`
-        + books.map(b => cell(game, b.key, marks)).join("") + fairCell(game.fair) + evCell(evSides(game, targetBook)) + `</tr>`);
+        + books.map(b => cell(game, b.key, marks)).join("") + fairCell(game) + evCell(evSides(game, targetBook), game) + `</tr>`);
   }
   const errors = Object.entries(lg.errors || {}).map(([k, e]) => `<div class="err">${esc(k)}: ${esc(e)}</div>`).join("");
   const plays = topPlays(lg, targetBook);
   const playCards = plays.map(p => `<div class="play"><div class="what"><div class="pick">${esc(p.label)}</div>`
-      + `<div class="where">${esc(p.game.away)} @ ${esc(p.game.home)} &middot; ${esc(lg.name)} &middot; ${fmt(p.price)} vs ${pct(p.chance)} fair</div></div>`
+      + `<div class="where">${esc(matchup(p.game))} &middot; ${esc(lg.name)} &middot; ${fmt(p.price)} vs ${pct(p.chance)} fair</div></div>`
       + `<div class="evv">+${(100 * p.ev).toFixed(1)}%</div></div>`).join("");
   const valuePanel = plays.length && targetBook !== "none"
       ? `<div class="value"><h3>Top value vs ${esc((books.find(b => b.key === targetBook) || {}).short || "")}</h3>`
         + `<div class="plays">${playCards}</div></div>` : "";
   return `<section class="league"><h2>${esc(lg.name)}</h2>${errors}`
       + valuePanel
-      + `<table class="grid"><thead>${head1}</thead><tbody>${rows.join("")}</tbody></table></section>`;
+      + `<div class="gridwrap"><table class="grid${lg.threeWay ? " three" : ""}"><thead>${head1}</thead><tbody>${rows.join("")}</tbody></table></div></section>`;
 }
 
 document.getElementById("stamp").textContent = "prices " + D.generated;

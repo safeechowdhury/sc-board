@@ -16,6 +16,10 @@ lets us find, so it isn't here. Kalshi is: its moneyline and game-total contract
 the way its props are (kalshi.py). Betway, shown only, is read from the data its league
 page is served with: one plain request a league, no browser.
 
+Soccer is here as the Premier League (epl()): a three-way moneyline (home, draw, away), devigged
+and pooled across the weighted books three ways at once, and totals at half goals only. Betway
+isn't asked for it.
+
 Books price several totals and spreads (Mise lists a rung per line), so parse
 keeps them all and the merge picks each book's line nearest the slate's median,
 which is where the main lines cluster.
@@ -24,6 +28,7 @@ import datetime as dt
 import json
 import math
 import re
+import types
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
@@ -91,6 +96,18 @@ _TEAMS = {
             "seattle mariners": "SEA", "st. louis cardinals": "STL", "st louis cardinals": "STL",
             "tampa bay rays": "TB", "texas rangers": "TEX", "toronto blue jays": "TOR",
             "washington nationals": "WSH"},
+    # the Premier League, with the books' short names ("Man City", "Nottm Forest", "Spurs"); "FC" and
+    # "AFC" are dropped before matching, and "&" read as "and". The last few are recent members.
+    "epl": {"arsenal": "ARS", "aston villa": "AVL", "bournemouth": "BOU", "brentford": "BRE",
+            "brighton": "BHA", "brighton and hove albion": "BHA", "chelsea": "CHE", "coventry": "COV",
+            "coventry city": "COV", "crystal palace": "CRY", "everton": "EVE", "fulham": "FUL", "hull": "HUL",
+            "hull city": "HUL", "ipswich": "IPS", "ipswich town": "IPS", "leeds": "LEE", "leeds united": "LEE",
+            "liverpool": "LIV", "manchester city": "MCI", "man city": "MCI", "manchester united": "MUN",
+            "man united": "MUN", "man utd": "MUN", "newcastle": "NEW", "newcastle united": "NEW",
+            "nottingham forest": "NFO", "nottm forest": "NFO", "nott'm forest": "NFO", "sunderland": "SUN",
+            "tottenham": "TOT", "tottenham hotspur": "TOT", "spurs": "TOT", "west ham": "WHU",
+            "west ham united": "WHU", "wolves": "WOL", "wolverhampton": "WOL", "wolverhampton wanderers": "WOL",
+            "burnley": "BUR", "leicester": "LEI", "leicester city": "LEI", "southampton": "SOU"},
 }
 # the phrases a team's name ends with ("golden knights", "white sox"), kept only where they
 # name one team in the league, longest first, so "golden knights" beats "knights"
@@ -113,13 +130,30 @@ def team_code(league, name: str | None) -> str | None:
     table = _TEAMS[league.KEY]
     # FanDuel names MLB's starters: "Milwaukee Brewers (R Gasser)"; not "(HYPER)", a special event
     name = _PITCHER.sub("", name or "")
-    key = re.sub(r"\s+", " ", re.sub(r"[.']", "", name.lower())).strip()
+    key = re.sub(r"\s+", " ", re.sub(r"[.']", "", name.lower().replace("&", " and "))).strip()
+    if getattr(league, "THREE_WAY", False):   # soccer: "Arsenal FC", "AFC Bournemouth"
+        key = re.sub(r"^afc |\s(a?fc)$", "", key).strip()
     if key in table:
         return table[key]
     for phrase, code in _MASCOTS[league.KEY]:
         if key.endswith(" " + phrase):
             return code
     return None
+
+
+def epl():
+    """The Premier League as the lines page asks for it: the soccer board's settings for it at every
+    book (leagues/soccer.py COMPETITIONS), plus what only the game lines need. A soccer moneyline
+    has three sides, the draw too (THREE_WAY)."""
+    from .leagues import soccer
+    return types.SimpleNamespace(**{**vars(books.competitions(soccer)[0]), "KEY": "epl", "NAME": "EPL",
+                                    "THREE_WAY": True, "MISE_TAG": "125", "KALSHI_TOTAL": "KXEPLTOTAL",
+                                    "STAKE_SPORT": "soccer", "STAKE_TOURNAMENT": "Premier League",
+                                    "SKIP_BOOKS": ("betway",)})
+
+
+def _three(league) -> bool:
+    return getattr(league, "THREE_WAY", False)
 
 
 def game_date(start: str) -> str:
@@ -143,7 +177,9 @@ def parse_pinnacle(payload, league, now=None):
     start, until = _window(now, league)
     markets = {}
     for m in payload.get("markets", []):
-        if m.get("period") == 0 and not m.get("isAlternate") and m.get("status") == "open":
+        # soccer's books post totals at half goals, Pinnacle's main is often a quarter: its alternates count there
+        if m.get("period") == 0 and (not m.get("isAlternate") or (_three(league) and m.get("type") == "total")) \
+                and m.get("status") == "open":
             markets.setdefault(m["matchupId"], []).append(m)
     out = []
     for matchup in payload.get("matchups", []):
@@ -161,6 +197,8 @@ def parse_pinnacle(payload, league, now=None):
             prices = {p["designation"]: pinnacle.decimal(p["price"]) for p in m.get("prices", [])}
             if m["type"] == "moneyline" and {"home", "away"} <= set(prices):
                 game["ml"] = {"home": prices["home"], "away": prices["away"]}
+                if "draw" in prices:
+                    game["ml"]["draw"] = prices["draw"]
             elif m["type"] == "total" and {"over", "under"} <= set(prices):
                 game["totals"].append({"line": m["prices"][0]["points"], "over": prices["over"], "under": prices["under"]})
             elif m["type"] == "spread" and {"home", "away"} <= set(prices):
@@ -176,6 +214,8 @@ def parse_pinnacle(payload, league, now=None):
 def fetch_fanduel(league, now=None):
     now = now or net.now()
     start, until = _window(now, league)
+    if _three(league):
+        return _fetch_fanduel_soccer(league, start, until)
     with httpx.Client(timeout=60, headers=fanduel.HEADERS, transport=httpx.HTTPTransport(retries=3)) as http:
         page = fanduel._get(http, "content-managed-page",
                             {"page": "CUSTOM", "customPageId": league.FANDUEL_PAGE, "timezone": "America/New_York"})
@@ -194,10 +234,54 @@ def fetch_fanduel(league, now=None):
     return {"pages": [page.get("attachments", {}) for page in pages]}
 
 
+def _fetch_fanduel_soccer(league, start, until):
+    """The competition's games off the sport's page, and each game's first prop tab: it carries the
+    3-way moneyline and the goal totals, and the soccer board asks for the same tab."""
+    with httpx.Client(timeout=60, headers=fanduel.HEADERS, transport=httpx.HTTPTransport(retries=3)) as http:
+        events = [e for e in fanduel.league_events(http, league)
+                  if start <= dt.datetime.fromisoformat(e["openDate"].replace("Z", "+00:00")) <= until]
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            pages = pool.map(lambda e: fanduel._get(http, "event-page", {"eventId": e["eventId"], "tab": league.FANDUEL_TABS[0]}),
+                             events)
+    return {"pages": [page.get("attachments", {}) for page in pages]}
+
+
 _TOTAL_NAME = re.compile(r"^Total (Goals|Points|Runs)$", re.I)
+_FD_GOALS = re.compile(r"^OVER_UNDER_(\d)(\d)$")   # "OVER_UNDER_25": over/under 2.5 goals
+
+
+def _parse_fanduel_soccer(payload):
+    out = []
+    for attachments in payload.get("pages", []):
+        event = next(iter(attachments.get("events", {}).values()), {})
+        if " v " not in event.get("name", ""):
+            continue
+        home_name, away_name = event["name"].split(" v ", 1)   # the home team first
+        game = {"start": event.get("openDate"), "away_name": away_name, "home_name": home_name,
+                "ml": {}, "totals": [], "spreads": []}
+        for m in attachments.get("markets", {}).values():
+            if m.get("marketStatus") != "OPEN":
+                continue
+            runners = [r for r in m.get("runners", []) if r.get("runnerStatus") == "ACTIVE" and r.get("winRunnerOdds")]
+            decimal = lambda r: round(float(r["winRunnerOdds"]["trueOdds"]["decimalOdds"]["decimalOdds"]), 3)
+            kind = m.get("marketType", "")
+            if kind == "WIN-DRAW-WIN":
+                sides = {((r.get("result") or {}).get("type") or "").lower(): decimal(r) for r in runners}
+                if {"home", "draw", "away"} <= set(sides):
+                    game["ml"] = {side: sides[side] for side in ("home", "draw", "away")}
+            elif _FD_GOALS.match(kind):
+                line = float(".".join(_FD_GOALS.match(kind).groups()))
+                over = next((r for r in runners if r["runnerName"].startswith("Over")), None)
+                under = next((r for r in runners if r["runnerName"].startswith("Under")), None)
+                if over and under:
+                    game["totals"].append({"line": line, "over": decimal(over), "under": decimal(under)})
+        out.append(game)
+    return out
 
 
 def parse_fanduel(payload, league, now=None):
+    if _three(league):
+        return _parse_fanduel_soccer(payload)
     out = []
     for attachments in payload.get("pages", []):
         event = next(iter(attachments.get("events", {}).values()), {})
@@ -262,9 +346,9 @@ def parse_draftkings(payload, league, now=None):
         label = market.get("name", "").lower()
         sides = {s["outcomeType"].lower(): s for s in selections if s.get("outcomeType")}
         if "money" in label:
-            for side in ("home", "away"):
+            for side, name in (("home", "home"), ("away", "away"), ("tie", "draw")):   # a soccer moneyline's draw is "Tie"
                 if side in sides:
-                    game["ml"][side] = round(float(sides[side]["trueOdds"]), 3)
+                    game["ml"][name] = round(float(sides[side]["trueOdds"]), 3)
         elif "total" in label:
             lines: dict = {}
             for s in selections:
@@ -318,7 +402,11 @@ def parse_kambi(payload, league, now=None):
         outcomes = [o for o in offer.get("outcomes", []) if o.get("status") == "OPEN" and o.get("odds")]
         by_type = {o["type"]: o for o in outcomes}
         main = bool(_KAMBI_MAIN.search(label))
-        if _KAMBI_ML.match(label) and len(outcomes) == 2 and {"OT_ONE", "OT_TWO"} <= set(by_type):
+        if label == "Full Time" and {"OT_ONE", "OT_CROSS", "OT_TWO"} <= set(by_type):   # soccer's 1X2
+            game["ml"] = {"home": round(by_type["OT_ONE"]["odds"] / 1000, 3),
+                          "draw": round(by_type["OT_CROSS"]["odds"] / 1000, 3),
+                          "away": round(by_type["OT_TWO"]["odds"] / 1000, 3)}
+        elif _KAMBI_ML.match(label) and len(outcomes) == 2 and {"OT_ONE", "OT_TWO"} <= set(by_type):
             if main or not game["ml"]:
                 game["ml"] = {"home": round(by_type["OT_ONE"]["odds"] / 1000, 3),
                               "away": round(by_type["OT_TWO"]["odds"] / 1000, 3)}
@@ -343,7 +431,7 @@ def parse_kambi(payload, league, now=None):
 
 # --- Mise-o-jeu: MONEY_LINE and the game total, a rung per line ---
 
-_MISE_UNIT = {"nhl": "GOALS", "nfl": "POINTS", "mlb": "RUNS", "nba": "POINTS"}
+_MISE_UNIT = {"nhl": "GOALS", "nfl": "POINTS", "mlb": "RUNS", "nba": "POINTS", "epl": "GOALS"}
 
 
 def fetch_mise(league, now=None):
@@ -366,6 +454,9 @@ def parse_mise(payload, league, now=None):
         for event in page:
             if event.get("started") or " at " not in (event.get("name") or ""):
                 continue
+            # soccer: every competition comes in one listing (the board's request); keep the league's
+            if getattr(league, "MISE_TAG", None) and event.get("competitionDrilldownTagId") != league.MISE_TAG:
+                continue
             away_name, home_name = event["name"].split(" at ", 1)
             game = {"start": event.get("startTime"), "away_name": away_name, "home_name": home_name,
                     "ml": {}, "totals": [], "spreads": []}
@@ -374,7 +465,12 @@ def parse_mise(payload, league, now=None):
                     continue
                 sides = {o["name"].casefold(): next((p.get("decimal") for p in o.get("prices") or []), None)
                          for o in m.get("outcomes") or []}
-                if m.get("groupCode") == "MONEY_LINE" and len(sides) == 2 and None not in sides.values():
+                if m.get("groupCode") == "MATCH_RESULT" and len(sides) == 3 and None not in sides.values():
+                    away, home, draw = sides.get(away_name.casefold()), sides.get(home_name.casefold()), sides.get("draw")
+                    if away and home and draw:
+                        game["ml"] = {"home": round(float(home), 3), "draw": round(float(draw), 3),
+                                      "away": round(float(away), 3)}
+                elif m.get("groupCode") == "MONEY_LINE" and len(sides) == 2 and None not in sides.values():
                     away = sides.get(away_name.casefold()) or sides.get(away_name.split()[-1].casefold())
                     home = sides.get(home_name.casefold()) or sides.get(home_name.split()[-1].casefold())
                     if away and home:
@@ -424,7 +520,26 @@ def parse_kalshi(payload, league, now=None):
         if m.get("floor_strike") is not None:
             totals.setdefault(m["event_ticker"].split("-", 1)[1], []).append(m)
     out = []
-    for g in payload.get("games", []):
+    for g in payload.get("games", []) if _three(league) else []:
+        # soccer: a contract for each team and one for the tie; each side is its own yes
+        sides = {("home" if kalshi.team_of(m) == g["home_id"] else "away" if kalshi.team_of(m) == g["away_id"]
+                  else "draw"): m for m in g["markets"]}
+        if set(sides) != {"home", "away", "draw"}:
+            continue
+        costs = {s: (kalshi.chance(m.get("yes_ask_dollars")), kalshi.chance(m.get("no_ask_dollars"))) for s, m in sides.items()}
+        game = {"start": g["start"], "away_name": sides["away"].get("yes_sub_title"),
+                "home_name": sides["home"].get("yes_sub_title"), "ml": {}, "totals": [], "spreads": []}
+        if all(kalshi.tight(*cost) for cost in costs.values()):
+            game["ml"] = {s: round(1 / costs[s][0], 3) for s in ("home", "draw", "away")}
+        rungs = [(abs(yes - no), float(m["floor_strike"]), yes, no) for m in totals.get(g["game"], [])
+                 for yes, no in [(kalshi.chance(m.get("yes_ask_dollars")), kalshi.chance(m.get("no_ask_dollars")))]
+                 if kalshi.tight(yes, no)]
+        if rungs:
+            gap, line, yes, no = min(rungs)
+            if gap <= MAIN_GAP:
+                game["totals"] = [{"line": line, "over": round(1 / yes, 3), "under": round(1 / no, 3)}]
+        out.append(game)
+    for g in payload.get("games", []) if not _three(league) else []:
         sides = {}
         for m in g["markets"]:
             side = "home" if kalshi.team_of(m) == g["home_id"] else "away" if kalshi.team_of(m) == g["away_id"] else None
@@ -476,9 +591,12 @@ def parse_bovada(payload, league, now=None):
     out = []
     for entry in payload.get("pages", []):
         name = entry.get("name", "")
-        if " @ " not in name:
+        if _three(league) and " vs " in name:
+            home_name, away_name = name.split(" vs ", 1)   # soccer names the home team first
+        elif " @ " in name:
+            away_name, home_name = name.split(" @ ", 1)
+        else:
             continue
-        away_name, home_name = name.split(" @ ", 1)
         game = {"start": dt.datetime.fromtimestamp(entry["start"] / 1000, dt.timezone.utc)
                 .isoformat().replace("+00:00", "Z"),
                 "away_name": away_name, "home_name": home_name, "ml": {}, "totals": [], "spreads": []}
@@ -486,12 +604,16 @@ def parse_bovada(payload, league, now=None):
             for event in block.get("events", []):
                 for group in event.get("displayGroups", []):
                     for m in group.get("markets", []):
-                        if m.get("status") != "O" or (m.get("period") or {}).get("description") != "Game":
+                        if m.get("status") != "O" or (m.get("period") or {}).get("description") not in ("Game", "Regulation Time"):
                             continue
                         runners = [o for o in m.get("outcomes", []) if o.get("status") == "O" and o.get("price")]
                         price = lambda o: bovada._odds({"odds": o["price"].get("decimal")})
                         label = m.get("description")
-                        if label == "Moneyline" and len(runners) == 2:
+                        if label == "3-Way Moneyline" and len(runners) == 3:
+                            by_name = {o["description"]: price(o) for o in runners}
+                            if None not in by_name.values() and {home_name, away_name, "Draw"} <= set(by_name):
+                                game["ml"] = {"home": by_name[home_name], "draw": by_name["Draw"], "away": by_name[away_name]}
+                        elif label == "Moneyline" and len(runners) == 2:
                             by_name = {o["description"]: price(o) for o in runners}
                             if None not in by_name.values() and away_name in by_name:
                                 game["ml"] = {"away": by_name[away_name], "home": by_name[home_name]}
@@ -501,7 +623,7 @@ def parse_bovada(payload, league, now=None):
                             if over and under and over["price"].get("handicap") == under["price"].get("handicap"):
                                 game["totals"].append({"line": float(over["price"]["handicap"]),
                                                        "over": price(over), "under": price(under)})
-                        elif label in ("Point Spread", "Puck Line", "Runline") and len(runners) == 2:
+                        elif label in ("Point Spread", "Puck Line", "Runline") and len(runners) == 2 and not _three(league):
                             sides = {o["description"]: o for o in runners}
                             if home_name in sides and away_name in sides \
                                     and sides[home_name]["price"].get("handicap") is not None:
@@ -525,9 +647,14 @@ def parse_betano(payload, league, now=None):
     out = []
     for event in payload.get("events", []):
         name = event.get("name") or ""
-        if " @ " not in name or not isinstance(event.get("startTime"), (int, float)):
+        if not isinstance(event.get("startTime"), (int, float)):
             continue
-        away_name, home_name = name.split(" @ ", 1)
+        if _three(league) and " - " in name:
+            home_name, away_name = name.split(" - ", 1)   # soccer: "Nottingham Forest - Arsenal FC", home first
+        elif " @ " in name:
+            away_name, home_name = name.split(" @ ", 1)
+        else:
+            continue
         game = {"start": dt.datetime.fromtimestamp(event["startTime"] / 1000, dt.timezone.utc)
                 .isoformat().replace("+00:00", "Z"),
                 "away_name": away_name, "home_name": home_name, "ml": {}, "totals": [], "spreads": []}
@@ -544,6 +671,9 @@ def parse_betano(payload, league, now=None):
                 side = "away" if team == away_name else "home" if team == home_name else None
                 if kind == "winner" and side:
                     game["ml"][side] = float(s["price"])
+                elif kind == "game result":   # soccer's 1X2 (not its "SuperOdds" boost)
+                    if side or (s.get("name") or "").lower() in ("tie", "draw"):
+                        game["ml"][side or "draw"] = float(s["price"])
                 elif kind == "spread" and side:
                     spread[side], spread[side + "_line"] = float(s["price"]), line
                 elif kind in ("points", "goals", "runs"):   # the total: NFL/NBA, NHL, MLB
@@ -682,7 +812,8 @@ def fetch_stake(league, now=None):
         raise ValueError(f"Stake: {answer['errors'][0].get('message')}")
     fixtures = []
     for tournament in ((answer.get("data") or {}).get("slugSport") or {}).get("tournamentList") or []:
-        if not (tournament.get("name") or "").upper().startswith(league.KEY.upper()):
+        wanted = getattr(league, "STAKE_TOURNAMENT", None)
+        if (tournament.get("name") or "") != wanted if wanted else not (tournament.get("name") or "").upper().startswith(league.KEY.upper()):
             continue
         for fixture in tournament.get("fixtureList") or []:
             data = fixture.get("data") or {}
@@ -717,6 +848,8 @@ def parse_stake(payload, league, now=None):
                     home, away = by_team(home_name), by_team(away_name)
                     if kind == "Winner" and home and away:
                         game["ml"] = {"away": away, "home": home}
+                    elif template.get("name") == "1x2" and home and away and prices.get("Draw"):   # soccer, not "1x2 (2up)"
+                        game["ml"] = {"home": home, "draw": prices["Draw"], "away": away}
                     elif kind == "Handicap" and "hcp" in spec and home and away:
                         game["spreads"].append({"line": float(spec["hcp"]), "home": home, "away": away})
                     elif kind == "Total" and "total" in spec:
@@ -779,9 +912,11 @@ def _merge(book_games: list[dict], league) -> list[dict]:
                 continue
             key = f"{game_date(game['start'])}|{away}@{home}"
             row = rows.setdefault(key, {"away": away, "home": home, "start": game["start"], "books": {}})
-            row["books"][book["key"]] = {"ml": game.get("ml") or None,
-                                         "totals": game.get("totals") or [],
-                                         "spreads": game.get("spreads") or []}
+            totals, spreads = game.get("totals") or [], game.get("spreads") or []
+            if _three(league):
+                # soccer: half-goal totals only (2.5), so every book is read at a line with no push; no spreads
+                totals, spreads = [t for t in totals if t["line"] % 1 == 0.5], []
+            row["books"][book["key"]] = {"ml": game.get("ml") or None, "totals": totals, "spreads": spreads}
     for row in rows.values():
         anchors, even = Counter(), Counter()
         for entry in row["books"].values():
@@ -816,12 +951,39 @@ def _weighted(chances: list[tuple[float, float]]) -> float:
     return 1 / (1 + math.exp(-logit))
 
 
+def devig_n(chances: list[float]) -> list[float]:
+    """Several sides' implied chances with the vig removed, the power method as books.devig: each
+    raised to the one power k that makes them sum to 1."""
+    lo, hi = 1.0, 1.0
+    total = lambda k: sum(c ** k for c in chances)
+    while total(hi) > 1:
+        hi *= 2
+    while total(lo) < 1:
+        lo /= 2
+    for _ in range(100):
+        k = (lo + hi) / 2
+        lo, hi = (k, hi) if total(k) > 1 else (lo, k)
+    return [c ** ((lo + hi) / 2) for c in chances]
+
+
+THREE = ("home", "draw", "away")
+
+
+def _pooled(parts: list[tuple[list[float], float]]) -> list[float]:
+    """Several sides' chances [(chances, weight)] averaged in log terms by weight and renormalized:
+    for two sides, the same as averaging their log-odds (_weighted)."""
+    logs = [sum(weight * math.log(chances[i]) for chances, weight in parts) / sum(w for _, w in parts)
+            for i in range(len(parts[0][0]))]
+    raw = [math.exp(v) for v in logs]
+    return [v / sum(raw) for v in raw]
+
+
 def fair(row: dict) -> dict:
     """The weighted books' no-vig chance of each side: the moneylines, and the total at the
     game's median line, each book devigged and averaged in log-odds by its weight. A pair
     whose sides imply more than 1 + books.MAX_OVERROUND is left out. Empty where no weighted
     book posts both sides."""
-    mls, totals = [], []
+    mls, totals, three = [], [], []
     tight = lambda a, b: 1 / a + 1 / b <= 1 + books.MAX_OVERROUND + 1e-9
     for book in BOOKS:
         if not book["weight"]:
@@ -830,13 +992,18 @@ def fair(row: dict) -> dict:
         if not entry:
             continue
         ml = entry["ml"] or {}
-        if ml.get("away") and ml.get("home") and tight(ml["away"], ml["home"]):
+        if row.get("threeWay"):
+            if all(ml.get(side) for side in THREE) and sum(1 / ml[side] for side in THREE) <= 1 + books.MAX_OVERROUND + 1e-9:
+                three.append((devig_n([1 / ml[side] for side in THREE]), book["weight"]))
+        elif ml.get("away") and ml.get("home") and tight(ml["away"], ml["home"]):
             mls.append((devig(1 / ml["away"], 1 / ml["home"])[0], book["weight"]))
         total = (entry["totals"] or [None])[0]
         if total and total["line"] == row["totalLine"] and total["over"] and total["under"] \
                 and tight(total["over"], total["under"]):
             totals.append((devig(1 / total["over"], 1 / total["under"])[0], book["weight"]))
     out = {}
+    if three:
+        out["ml"] = dict(zip(THREE, _pooled(three)))
     if mls:
         away = _weighted(mls)
         out["ml"] = {"away": away, "home": 1 - away}
@@ -853,9 +1020,8 @@ def _ev(row: dict, book: str = "betano") -> dict | None:
         return None
     out = {}
     fair_line = row.get("fair") or {}
-    if entry.get("ml") and fair_line.get("ml") and entry["ml"].get("away") and entry["ml"].get("home"):
-        out["ml"] = {"away": fair_line["ml"]["away"] * entry["ml"]["away"] - 1,
-                     "home": fair_line["ml"]["home"] * entry["ml"]["home"] - 1}
+    if entry.get("ml") and fair_line.get("ml") and all(entry["ml"].get(side) for side in fair_line["ml"]):
+        out["ml"] = {side: chance * entry["ml"][side] - 1 for side, chance in fair_line["ml"].items()}
     total = (entry.get("totals") or [None])[0]
     if total and fair_line.get("total") and total["line"] == row["totalLine"] \
             and total.get("over") and total.get("under"):
@@ -867,21 +1033,26 @@ def _ev(row: dict, book: str = "betano") -> dict | None:
 def build(leagues=None, offline: bool = False) -> Path:
     """Fetch every book's game lines, merge them and write site/lines.html."""
     from . import site as board   # the board's cache, output folder and JSON encoding
-    # college football and soccer aren't on it yet: their teams aren't in _TEAMS
-    leagues = {key: league for key, league in (leagues or {}).items() if key in _TEAMS}
+    # soccer is here as its Premier League (epl()); college football isn't yet: its teams aren't in _TEAMS
+    asked_for = leagues or {}
+    leagues = {key: league for key, league in asked_for.items() if key in _TEAMS}
+    if "soccer" in asked_for:
+        leagues["epl"] = epl()
+    shelf = {key: [book for book in BOOKS if book["key"] not in getattr(league, "SKIP_BOOKS", ())]
+             for key, league in leagues.items()}
     now = net.now()
     page = {"generated": dt.datetime.now(board.ET).isoformat(timespec="minutes"), "leagues": []}
     # every league's every book at once; net.LIMITS keeps each site to its own pace
-    with ThreadPoolExecutor(max_workers=len(BOOKS) * max(len(leagues), 1)) as pool:
+    with ThreadPoolExecutor(max_workers=max(sum(map(len, shelf.values())), 1)) as pool:
         asked = {(league.KEY, book["key"]): pool.submit(
                      board._fetch_cached, f"{league.KEY}-lines-{book['key']}",
                      lambda book=book, league=league: book["fetch"](league, now), offline,
                      lambda answer, book=book, league=league: book["parse"](answer, league, now))
-                 for league in leagues.values() for book in BOOKS}
+                 for league in leagues.values() for book in shelf[league.KEY]}
         answers = {key: future.result() for key, future in asked.items()}
     for league in leagues.values():
         book_games = []
-        for book in BOOKS:
+        for book in shelf[league.KEY]:
             answer, at, error = answers[(league.KEY, book["key"])]
             try:
                 games = book["parse"](answer, league, now) if answer else []
@@ -892,19 +1063,20 @@ def build(leagues=None, offline: bool = False) -> Path:
         rows = [row for row in _merge(book_games, league)
                 if dt.datetime.fromisoformat(row["start"].replace("Z", "+00:00")) > now]
         for row in rows:
+            row["threeWay"] = _three(league)
             row["fair"] = fair(row)
             row["ev"] = _ev(row)
         page["leagues"].append({
-            "key": league.KEY, "name": league.NAME,
+            "key": league.KEY, "name": league.NAME, "threeWay": _three(league),
             "books": [{"key": book["key"], "name": book["name"], "short": book["short"],
                        "sharp": book["weight"] > 0, "weight": book["weight"],
                        "target": book["target"],
-                       "icon": book.get("icon")} for book in BOOKS],
+                       "icon": book.get("icon")} for book in shelf[league.KEY]],
             "games": rows,
             "fetched": {bg["key"]: bg["at"].isoformat(timespec="minutes") if bg["at"] else None for bg in book_games},
             "errors": {bg["key"]: bg["error"] for bg in book_games if bg["error"]},
         })
-    board.OUT.mkdir(exist_ok=True)
+    board._out()   # site/, with its .htaccess and the book icons the page points at
     out = board.OUT / "lines.html"
     out.write_text(TEMPLATE.read_text(encoding="utf-8")
                    .replace("__DATA__", board._dumps(page).replace("</", "<\\/")), encoding="utf-8")

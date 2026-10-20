@@ -332,8 +332,29 @@ BOVADA_STATS = {   # as Bovada names them (seen 2026-10-19): an over/under, then
     "To Record a Triple-Double": "triple_double",
 }
 
+# How a sharp book's price is moved to a betting site's other line, for its EV (template.html estimateAt): stats here
+# are read from a fitted count distribution, "poisson" or a negative binomial of that size (its
+# variance mean + mean^2/size); the rest move in log-odds along the books' ladders. Chosen 2026-10-19
+# by backtesting against the sharp books' own alternate lines on the day's boards: where a count
+# beat the ladders. The market's ladders are far less spread than the game logs (they know the minutes).
+FAIR_DIST = {
+    "rebounds": "poisson", "assists": "poisson", "steals": "poisson", "blocks": "poisson",   # 1.7 vs 2.5-2.7 points off
+    "threes": 50,                                                                     # 2.0 vs 5.0
+    "turnovers": "poisson", "blks_stls": "poisson",   # not on ladders yet: low counts like steals and blocks
+}   # points and its combos stay on the ladders, which beat any count fit
+
 MISE_LEAGUE = "584"   # "NBA" in Mise's sport tree ("NBA Preseason" is 27726)
-MISE_STATS: dict[str, str] = {}   # no NBA games posted as of 2026-10-19; the build lists the codes once they are
+# Mise-o-jeu group codes, two-way ("..._OVER_UNDER_PLAYER") and one-way ladders alike
+MISE_STATS = {
+    "TOTAL_POINTS_OVER_UNDER_PLAYER": "points", "PLAYER_UNDEFINED_TOTAL_POINTS": "points",
+    "TOTAL_REBOUNDS_OVER_UNDER_PLAYER": "rebounds", "PLAYER_UNDEFINED_TOTAL_REBOUNDS": "rebounds",
+    "TOTAL_ASSISTS_OVER_UNDER_PLAYER": "assists", "PLAYER_UNDEFINED_TOTAL_ASSISTS": "assists",
+    "PLAYER_UNDEFINED_TOTAL_POINTS_REBOUNDS": "pts_rebs",
+    "PLAYER_UNDEFINED_TOTAL_POINTS_ASSISTS": "pts_asts",
+    "PLAYER_UNDEFINED_TOTAL_POINTS_ASSISTS_REBOUNDS": "pts_rebs_asts",
+    "PLAYER_UNDEFINED_TOTAL_BLOCKS": "blocks",
+    "PLAYER_DOUBLE_DOUBLE": "double_double", "PLAYER_TRIPLE_DOUBLE": "triple_double",
+}
 
 BETANO_PATH = "/sport/basketball/north-america/nba/441g/"   # its league page on betano.ca
 

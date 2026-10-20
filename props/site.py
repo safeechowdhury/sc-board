@@ -17,7 +17,7 @@ from pathlib import Path
 import httpx
 import polars as pl
 
-from . import books, kambi, market, matchups, metrics, net, snapshots, store, underdog
+from . import books, icons, kambi, market, matchups, metrics, net, snapshots, store, underdog
 from .leagues import LEAGUES
 from .slate import ET, board_date, slate_date
 
@@ -88,6 +88,25 @@ def _parse(book, answer, league) -> tuple[list[dict], Counter, str | None]:
         return [], Counter(), f"its answer could not be read ({type(e).__name__}: {e})"
 
 
+def _priced_lines(league, fetched_books) -> dict[tuple[str, str], float]:
+    """{(normalized name, stat): the line for its row} for the FIXED_LINES and PRICE_ONLY stats a
+    book prices: the stat's set line, or for a PRICE_ONLY stat without one (longest reception) the
+    books' market line for that player (market._line: the sharp books' two-way line first)."""
+    fixed, price_only = getattr(league, "FIXED_LINES", {}), getattr(league, "PRICE_ONLY", {})
+    set_lines = {stat: line for stat, (_, line) in fixed.items()} | {s: l for s, l in price_only.items() if l is not None}
+    ladders: dict[tuple, dict] = {}   # (name, stat) -> {line: {book: (over, under)}}
+    out = {}
+    for book, props, *_ in fetched_books:
+        for prop in props:
+            key = (underdog.norm_name(prop["player"]), prop["stat"])
+            if prop["stat"] in set_lines:
+                out[key] = set_lines[prop["stat"]]
+            elif prop["stat"] in price_only:
+                ladders.setdefault(key, {}).setdefault(prop["line"], {})[book.KEY] = (prop["over"], prop["under"])
+    sharp = {book.KEY for book in books.BOOKS if book.WEIGHT > 0}
+    return out | {key: market._line(prices, sharp) for key, prices in ladders.items()}
+
+
 def _slate_date(start: str) -> dt.date:
     return slate_date(dt.datetime.fromisoformat(start.replace("Z", "+00:00")))
 
@@ -137,7 +156,38 @@ def _out() -> Path:
     text = HTACCESS.read_text(encoding="utf-8")
     if not target.exists() or target.read_text(encoding="utf-8") != text:
         target.write_text(text, encoding="utf-8")
+    icons.publish(OUT)
     return OUT
+
+
+def _asset(kind: str, text: str) -> str:
+    """site/assets/board.<hash>.<kind>, written once, the older ones removed; returns its path."""
+    folder = OUT / "assets"
+    folder.mkdir(parents=True, exist_ok=True)
+    name = f"board.{hashlib.blake2b(text.encode(), digest_size=4).hexdigest()}.{kind}"
+    if not (folder / name).exists():
+        part = folder / f".{name}.{threading.get_ident()}.part"
+        part.write_text(text, encoding="utf-8")
+        part.replace(folder / name)
+    for old in folder.glob(f"board.*.{kind}"):
+        if old.name != name:
+            old.unlink(missing_ok=True)
+    return f"assets/{name}"
+
+
+def _board_html(name: str, payload: dict) -> str:
+    """A board's page: the template with its styles and script in shared files (every league's
+    board loads the same two, kept by the browser between them) and the board's data inline."""
+    html = TEMPLATE.read_text(encoding="utf-8").replace("__NAME__", name)
+    style_at, style_end = html.index("<style>"), html.index("</style>") + len("</style>")
+    css = html[style_at + len("<style>"):style_end - len("</style>")]
+    html = html[:style_at] + f'<link rel="stylesheet" href="{_asset("css", css)}">' + html[style_end:]
+    data_at = html.index('<script id="data"')
+    script_at = html.index("<script>", data_at)
+    script_end = html.index("</script>", script_at) + len("</script>")
+    js = html[script_at + len("<script>"):script_end - len("</script>")]
+    html = html[:script_at] + f'<script src="{_asset("js", js)}"></script>' + html[script_end:]
+    return html.replace("__DATA__", _dumps(payload).replace("</", "<\\/"))
 
 
 def _nav() -> list[list[str]]:
@@ -226,7 +276,8 @@ class _Board:
                            dates.partition_by("team", as_dict=True, maintain_order=True).items()}
         # each player's games as columns, newest first
         self.logs = {pid: frame.to_dict(as_series=False) for (pid,), frame in
-                     logs.select("player_id", "date", "opponent", "season", "game_type", *league.PROPS)
+                     logs.select("player_id", "date", "opponent", "season", "game_type",
+                                 *[stat for stat in league.PROPS if stat not in getattr(league, "PRICE_ONLY", {})])
                      .partition_by("player_id", as_dict=True, include_key=False).items()}
 
     def _row(self, pid, name, team, opponent, home, position, start, game, stat, line, offers=None) -> dict:
@@ -242,7 +293,7 @@ class _Board:
             row["rest"] = min((date - played[0]).days - 1, metrics.MAX_REST) if played else None
         if offers:
             row.update(over=offers["over"], under=offers["under"])
-        if pid in self.logs:
+        if pid in self.logs and stat not in getattr(self.league, "PRICE_ONLY", {}):   # a price-only stat has no history
             row.update(metrics.prop_row(self.logs[pid], stat, line, opponent, self.season))
             # the same with playoff games counted, for the Include playoffs toggle, where that changes anything
             playoffs = metrics.prop_row(self.logs[pid], stat, line, opponent, self.season, playoffs=True)
@@ -266,7 +317,7 @@ class _Board:
                                   position, line["start"], line["game"], line["stat"], line["line"], line))
         return rows
 
-    def typical_rows(self, games: list[dict], rosters: dict, taken: set, priced: set = frozenset()) -> list[dict]:
+    def typical_rows(self, games: list[dict], rosters: dict, taken: set, priced: dict | None = None) -> list[dict]:
         """Every other prop for the players expected to play, at a typical line.
 
         A player counts if he is on the team's roster (or, when rosters are
@@ -274,11 +325,12 @@ class _Board:
         ACTIVE_GAMES games (or his kind's own "active"). Each team is listed for its next game only.
         `taken` holds the (player, stat) pairs Underdog covers.
         Props that are a foregone conclusion for the player are left out.
-        A FIXED_LINES stat (2+ TDs) gets a row at its own line wherever a book
-        prices it: `priced` holds the (normalized name, stat) pairs the books cover.
+        A FIXED_LINES stat (2+ TDs) or PRICE_ONLY one (1st TD) gets a row at its own line wherever
+        a book prices it: `priced` holds {(normalized name, stat): line} for those the books cover.
         """
         league, rows, listed = self.league, [], set()
         fixed = getattr(league, "FIXED_LINES", {})
+        price_only, priced = getattr(league, "PRICE_ONLY", {}), priced or {}
         for g in games:   # in kickoff order, so a team with two games on the slate is listed for the first only
             for team, opponent, home in ((g["away"], g["home"], False), (g["home"], g["away"], True)):
                 if team in listed:
@@ -294,9 +346,9 @@ class _Board:
                     active = kind.get("active", league.ACTIVE_GAMES)
                     if dates and log["date"][0] < dates[min(active, len(dates)) - 1]:
                         continue
-                    for stat, (_, line) in fixed.items():
-                        if (stat in kind["picks"] and (pid, stat) not in taken
-                                and (underdog.norm_name(p["name"]), stat) in priced):
+                    for stat in [stat for stat in fixed if stat in kind["picks"]] + list(price_only):
+                        line = priced.get((underdog.norm_name(p["name"]), stat))
+                        if (pid, stat) not in taken and line is not None:
                             rows.append(self._row(pid, p["name"], team, opponent, home, p["position"], g["start"],
                                                   g["key"], stat, line))
                     for stat in kind["typical"]:
@@ -397,20 +449,33 @@ def _write_player_files(league, logs: pl.DataFrame, players: pl.DataFrame, mates
         (folder / name).unlink()
 
 
+def _trim(x):
+    """Odds to 4 decimals: the page shows 2, and a book's raw 1.3010668748373668 tripled the payload."""
+    if isinstance(x, float):
+        return round(x, 4)
+    if isinstance(x, list | tuple):
+        return [_trim(v) for v in x]
+    if isinstance(x, dict):
+        return {k: _trim(v) for k, v in x.items()}
+    return x
+
+
 def _books_payload(quotes: list) -> list[dict]:
     """Each book's [line, over, under] in decimal odds, keyed "<player id or name>|<stat>"."""
     return [{"key": book.KEY, "name": book.NAME, "short": book.SHORT, "sharp": book.WEIGHT > 0, "weight": book.WEIGHT,
-             "target": book.TARGET, "icon": getattr(book, "ICON", None), "prices": prices,
+             "target": book.TARGET, "icon": getattr(book, "ICON", None), "prices": _trim(prices),
              "fetched": at.isoformat(timespec="minutes") if at and prices else None}
             for book, prices, _, at, _, _, _ in quotes]
 
 
-def _fair_payload(keys: set[str]) -> dict:
+def _fair_payload(keys: set[str], league) -> dict:
     """How the books' prices make the fair chance (books.py), among the books on the board: a
-    confident set with a book the league doesn't have can never be met."""
+    confident set with a book the league doesn't have can never be met. dist: the league's stats
+    whose other lines are read from a count distribution (FAIR_DIST)."""
     return {"maxOverround": books.MAX_OVERROUND,
             "confident": [list(sure) for sure in books.CONFIDENT if set(sure) <= keys],
-            "estimate": [key for key in books.ESTIMATE if key in keys]}
+            "estimate": [key for key in books.ESTIMATE if key in keys],
+            "dist": getattr(league, "FAIR_DIST", {})}
 
 
 def _report(say, quotes: list) -> None:
@@ -550,13 +615,12 @@ def _odds_board(league, offline: bool, record: bool) -> Path:
         "standardOdds": standard.most_common(1)[0][0] if standard else None, "udIcon": underdog.ICON,
         "players": [], "dvp": {},
         "lines": {"fetched": fetched.isoformat(timespec="minutes") if fetched else None, "error": error},
-        "fair": _fair_payload({book.KEY for book in carried}),
+        "fair": _fair_payload({book.KEY for book in carried}, league),
         "books": _books_payload(quotes),
     }
     _out()
     out = OUT / league.PAGE
-    out.write_text(TEMPLATE.read_text(encoding="utf-8").replace("__NAME__", league.NAME)
-                   .replace("__DATA__", _dumps(payload).replace("</", "<\\/")), encoding="utf-8")
+    out.write_text(_board_html(league.NAME, payload), encoding="utf-8")
     viewer_messages = write_viewer(league, pl.DataFrame(schema={"player_id": pl.String, "name": pl.String}), offline)
 
     ud = sum(row["ud"] for row in rows)
@@ -666,8 +730,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
         failed = "; ".join(filter(None, [failed, unreadable])) or None
         answer = None if unreadable else answer
         fetched_books.append((book, books.with_fixed(props, league), at, failed, answer is not None, unmapped))
-    priced = {(underdog.norm_name(prop["player"]), prop["stat"])
-              for _, props, *_ in fetched_books for prop in props if prop["stat"] in fixed}
+    priced = _priced_lines(league, fetched_books)
 
     board = _Board(league, df, logs, index, dvp, season)
     rows = board.underdog_rows(lines)
@@ -708,6 +771,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
         "props": [[key, label, short, league.TABS[key]] for key, (label, short) in league.PROPS.items()],
         "labels": [[key, label, short] for key, (label, short) in league.LABELS.items()],
         "clock": league.CLOCK,
+        "priceOnly": list(getattr(league, "PRICE_ONLY", {})),
         "positions": league.POSITIONS,
         "kinds": {kind: {part: stats[part] for part in ("picks", "log", "minis")} for kind, stats in league.KINDS.items()},
         "groups": league.GROUPS,
@@ -726,7 +790,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
             "fetched": fetched.isoformat(timespec="minutes") if fetched else None,
             "error": error,
         },
-        "fair": _fair_payload({book.KEY for book in books.BOOKS}),
+        "fair": _fair_payload({book.KEY for book in books.BOOKS}, league),
         "books": _books_payload(quotes),
     }
 
@@ -739,9 +803,7 @@ def build(league, offline: bool = False, record: bool = False) -> Path:
                             metrics.teammates(logs, league.lineups(df), index, recent["player_id"].to_list()))
         made.parent.mkdir(parents=True, exist_ok=True)
         made.write_text(made_from)
-    html = (TEMPLATE.read_text(encoding="utf-8")
-            .replace("__NAME__", league.NAME)
-            .replace("__DATA__", _dumps(payload).replace("</", "<\\/")))
+    html = _board_html(league.NAME, payload)
     out = OUT / league.PAGE
     out.write_text(html, encoding="utf-8")
     viewer_messages = viewer_sports.result()[1] + write_viewer(league, recent, offline)

@@ -34,8 +34,8 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(props, [{"player": "Brandon Hagel", "stat": "first_goals", "line": 0.5, "over": 6.897, "under": None}])
 
     def test_unmapped_market_types_are_counted(self):
-        props, skipped = novig.parse({"markets": [market("FIRST_TOUCHDOWN_SCORER", "Chris Olave", 0, "0.19000", "0.81500")]}, nfl)
-        self.assertEqual((props, dict(skipped)), ([], {"FIRST_TOUCHDOWN_SCORER": 1}))
+        props, skipped = novig.parse({"markets": [market("LONGEST_COMPLETION", "Chris Olave", 24.5, "0.50000", "0.52000")]}, nfl)
+        self.assertEqual((props, dict(skipped)), ([], {"LONGEST_COMPLETION": 1}))
 
 
 class CardsTest(unittest.TestCase):

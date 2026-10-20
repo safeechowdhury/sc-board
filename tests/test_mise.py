@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 from props import mise
-from props.leagues import mlb, nfl, nhl
+from props.leagues import mlb, nba, nfl, nhl
 
 
 def market(name, code, outcomes, line=None, status="ACTIVE"):
@@ -68,6 +68,21 @@ class ParseTest(unittest.TestCase):
             market("Player to Score 2+", "GOALSCORER_TWO_OR_MORE", [("Igor Thiago", 7.25)]),
         ]}, soccer)
         self.assertEqual([(p["stat"], p["line"], p["over"]) for p in props], [("goals", 0.5, 2.4), ("goals", 1.5, 7.25)])
+
+    def test_nba_props_and_a_players_double_double(self):
+        props, skipped = mise.parse({"markets": [
+            market("Landry Shamet Total Points 7.5", "TOTAL_POINTS_OVER_UNDER_PLAYER", [("Over", 1.85), ("Under", 1.89)], line=7.5),
+            market("Mikal Bridges Total Points + Assists + Rebounds", "PLAYER_UNDEFINED_TOTAL_POINTS_ASSISTS_REBOUNDS", [("20+", 1.71)]),
+            market("VJ Edgecombe to record a Double-double", "PLAYER_DOUBLE_DOUBLE", [("Player to Achieve Double-Double", 13.0)]),
+            market("Karl-Anthony Towns to record a Triple-double", "PLAYER_TRIPLE_DOUBLE", [("Player to Achieve Triple-Double", 11.0)]),
+        ]}, nba)
+        self.assertEqual([(p["player"], p["stat"], p["line"], p["over"], p["under"]) for p in props], [
+            ("Landry Shamet", "points", 7.5, 1.85, 1.89),
+            ("Mikal Bridges", "pts_rebs_asts", 19.5, 1.71, None),
+            ("VJ Edgecombe", "double_double", 0.5, 13.0, None),
+            ("Karl-Anthony Towns", "triple_double", 0.5, 11.0, None),
+        ])
+        self.assertFalse(skipped)
 
     def test_periods_closed_markets_and_suspended_prices_are_left_out(self):
         suspended = market("Tyler Warren Total Receptions 5.5", "TOTAL_RECEPTIONS_OVER_UNDER_PLAYER",

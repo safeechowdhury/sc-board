@@ -237,6 +237,9 @@ UNDERDOG_STATS = {
     "field_goals_made": "fg_made",
     "extra_points_made": "xp_made",
     "kicking_points": "kicking_points",
+    "period_first_touchdown_scored": "first_td",
+    "receiving_long": "longest_rec",
+    "rushing_long": "longest_rush",
 }
 TEAM_ALIASES = {"LA": "LAR", "JAC": "JAX", "WSH": "WAS"}
 PINNACLE_LEAGUE = 889
@@ -273,7 +276,7 @@ DRAFTKINGS_CATEGORIES = ["Passing Props", "Receiving Props", "Rushing Props", "S
 # Field markets, a runner per player, with the count as N. The "TD Scorer" subcategory holds
 # "Anytime TD Scorer", "2+ TDs" and "First TD Scorer"; "3+ TDs" is its own. None: read past quietly.
 DRAFTKINGS_FIELDS = {"TD Scorer": None, "Anytime TD Scorer": "rush_rec_tds", "N+ TDs": "rush_rec_tds",
-                     "First TD Scorer": None}
+                     "First TD Scorer": "first_td"}
 DRAFTKINGS_LADDERS = {   # "N+" subcategory names ("Receiving Yards": 25+, 50+, ...)
     "Receiving Yards": "rec_yds", "Receptions": "receptions", "Rush Yards": "rush_yds",
     "Rush + Rec Yards": "rush_rec_yds", "Rush Attempts": "rush_att",
@@ -293,6 +296,8 @@ DRAFTKINGS_STATS = {   # two-way subcategory names; quarter and half O/Us are le
     "FG Made O/U": "fg_made",
     "PAT Made O/U": "xp_made",
     "Kicking Pts O/U": "kicking_points",
+    "Longest Reception O/U": "longest_rec",
+    "Longest Rush O/U": "longest_rush",
 }
 
 KAMBI_PATH = "american_football/nfl"
@@ -324,6 +329,9 @@ KAMBI_STATS = {
     "N+ Touchdown To Be Scored By The Player - Including Overtime": "rush_rec_tds",
     "Total Successful Field Goals by the Player - Including Overtime": "fg_made",
     "Total Kicking points by the Player - Including Overtime": "kicking_points",
+    "First Touchdown Scorer - Including Overtime": "first_td",
+    "Total Yards of Longest Reception by the Player - Including Overtime": "longest_rec",
+    "Total Yards of Longest Rush by the Player - Including Overtime": "longest_rush",
 }
 
 NOVIG_LEAGUE = "NFL"
@@ -332,7 +340,8 @@ NOVIG_STATS = {   # Novig market types
     "PASSING_COMPLETIONS": "pass_cmp", "INTERCEPTIONS_THROWN": "pass_int", "PASSING_AND_RUSHING_YARDS": "pass_rush_yds",
     "RUSHING_YARDS": "rush_yds", "RUSHING_ATTEMPTS": "rush_att", "RUSHING_AND_RECEIVING_YARDS": "rush_rec_yds",
     "RECEIVING_YARDS": "rec_yds", "RECEPTIONS": "receptions", "TOUCHDOWNS": "rush_rec_tds",
-    "FIELD_GOALS_MADE": "fg_made", "KICKING_POINTS": "kicking_points",
+    "FIELD_GOALS_MADE": "fg_made", "KICKING_POINTS": "kicking_points", "FIRST_TOUCHDOWN_SCORER": "first_td",
+    "LONGEST_RECEPTION": "longest_rec", "LONGEST_RUSH": "longest_rush",
 }
 
 PROPHETX_TOURNAMENT = 31   # ProphetX's NFL
@@ -343,7 +352,8 @@ PROPHETX_STATS = {   # its market subTypes (seen 2026-10-19); its "Assists" are 
     "player_total_rushing_yards": "rush_yds", "player_total_rushing_attempts": "rush_att",
     "player_total_rushing_receiving_yards": "rush_rec_yds", "player_total_receiving_yards": "rec_yds",
     "player_total_receptions": "receptions", "player_total_field_goals_made": "fg_made",
-    "player_total_kicking_points": "kicking_points",
+    "player_total_kicking_points": "kicking_points", "player_to_score_first_touchdown": "first_td",
+    "player_longest_reception": "longest_rec", "player_longest_rush": "longest_rush",
 }
 
 BET99_COMPETITION = 1595610   # BET99's NFL (its compId)
@@ -364,6 +374,8 @@ BET99_STATS = {   # its stat codes (seen 2026-10-19), each also as <code>MILE, i
     "PROPKPT": "kicking_points", "PROPKPTMILE": "kicking_points",
     "PROPEXTPTM": "xp_made", "PROPEXTPTMMILE": "xp_made",
     "PROPFBLLST": "fumbles_lost", "PROPFBLLSTMILE": "fumbles_lost",
+    "PROP1STTD": "first_td",
+    "PROPLNGREC": "longest_rec", "PROPLNGRECMILE": "longest_rec", "PROPLNGRS": "longest_rush", "PROPLNGRSMILE": "longest_rush",
 }
 
 POLYMARKET_SPORT = "nfl"
@@ -391,8 +403,16 @@ BOVADA_STATS = {
     "Total Receiving Yards": "rec_yds", "Alternate Receiving Yards": "rec_yds",
     "Total Receptions": "receptions", "Alternate Receptions": "receptions",
     "Anytime Touchdown Scorer": "rush_rec_tds", "Player to Score N or More Touchdowns": "rush_rec_tds",
-    "Total Kicking Points": "kicking_points",
+    "Total Kicking Points": "kicking_points", "First Touchdown Scorer": "first_td",
+    "Longest Reception": "longest_rec", "Player to Record a N+ Yard Reception": "longest_rec",   # an N+ yard catch: the longest over N - 0.5
 }
+
+# How a sharp book's price is moved to a betting site's other line, for its EV (template.html estimateAt): stats here
+# are read from a fitted count distribution, "poisson" or a negative binomial of that size (its
+# variance mean + mean^2/size); the rest move in log-odds along the books' ladders. Chosen 2026-10-19
+# by backtesting against the sharp books' own alternate lines on the day's boards: where a count
+# beat the ladders. The market's ladders are far less spread than the game logs (they know the minutes).
+FAIR_DIST = {"receptions": 30}   # 1.35 vs 1.7; yards, attempts and TDs stay on the ladders, which beat any count fit
 
 MISE_LEAGUE = "55"
 # Mise-o-jeu group codes, two-way ("..._OVER_UNDER_PLAYER") and one-way ladders alike
@@ -425,6 +445,7 @@ STAKE_STATS = {
     "Passing+Rushing Yards": "pass_rush_yds", "Anytime Touchdown": "rush_rec_tds",
     # "Rushing Touchdowns" and "Receiving Touchdowns" are each only part of a player's TDs: not the TD row
     "Field Goal Made": "fg_made", "Extra Point Made": "xp_made", "Kicking Points": "kicking_points",
+    "First Touchdown": "first_td",
 }
 PICK6_STATS = {
     "Passing Yards": "pass_yds", "Passing TDs": "pass_tds", "Rushing Yards": "rush_yds",
@@ -446,8 +467,9 @@ BETANO_STATS = {
     "Field Goals Made": "fg_made", "Extra Points Made": "xp_made", "Kicking Points": "kicking_points",
     "Lost Fumbles": "fumbles_lost", "Passing Attempts": "pass_att",
     "Multi Touchdown Scorer": "rush_rec_tds",
+    "Longest Reception": "longest_rec", "Longest Rush": "longest_rush",
 }
-BETANO_FIRST = {}
+BETANO_FIRST = {}   # its "First Touchdown" table is each team's first scorer, not the game's: left unmapped
 
 PROPS = {
     "pass_yds": ("Pass Yards", "PASS YDS"),
@@ -468,17 +490,25 @@ PROPS = {
     "fg_made": ("FG Made", "FG"),
     "xp_made": ("XP Made", "XP"),
     "kicking_points": ("Kicking Points", "K PTS"),
+    "first_td": ("First TD Scorer", "1ST TD"),
+    "longest_rec": ("Longest Reception", "LNG REC"),
+    "longest_rush": ("Longest Rush", "LNG RUSH"),
 }
 TABS = {
     "pass_yds": "Pass Yds", "pass_tds": "Pass TD", "pass_cmp": "Comp", "pass_att": "Pass Att", "pass_int": "INT",
     "pass_rush_yds": "P+R Yds", "rush_yds": "Rush Yds", "rush_att": "Carries", "rush_rec_yds": "R+R Yds",
     "rec_yds": "Rec Yds", "receptions": "Rec", "targets": "Targets", "rush_rec_tds": "TD", "two_tds": "2+ TD",
-    "fumbles_lost": "Fum", "fg_made": "FG", "xp_made": "XP", "kicking_points": "K Pts",
+    "fumbles_lost": "Fum", "fg_made": "FG", "xp_made": "XP", "kicking_points": "K Pts", "first_td": "1st TD",
+    "longest_rec": "Long Rec", "longest_rush": "Long Rush",
 }
 LABELS = {"snaps": ("Snaps", "SNAPS")}
 # Stats that are another column at a set line, with a tab of their own: 2+ TDs is rush + rec TDs over 1.5,
 # kept apart from the anytime TD row. A board row is made for each player a book prices there.
 FIXED_LINES = {"two_tds": ("rush_rec_tds", 1.5)}
+# Stats the board only compares prices on: the game logs don't say who scored first or how long a
+# player's longest play was, so there are no hit rates. A row is made for each player Underdog or a
+# book prices, at Underdog's line, else the stat's set line, else (None) the books' market line.
+PRICE_ONLY = {"first_td": 0.5, "longest_rec": None, "longest_rush": None}
 ANYTIME_STATS = {"rush_rec_tds"}   # a book's 2+ or 3+ TD rung is never the anytime row's price (books.prices)
 CLOCK: list[str] = []
 

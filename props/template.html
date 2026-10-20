@@ -109,6 +109,7 @@ button { cursor: pointer; }
 .settings .bookicon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; }
 .settings .bookname { flex: 1; }
 .settings .sharpdot { color: var(--ink-3); font-size: 11px; }
+.setopts, .setbadge { display: none; }
 .settings .setnote { margin: 4px 12px 10px; font-size: 11px; line-height: 1.35; color: var(--ink-3); }
 .games h2 { margin: 0 0 8px; font: 600 13px/1.2 var(--body); color: var(--ink-3); }
 .games h2:not(:first-child) { margin-top: 18px; }
@@ -347,17 +348,22 @@ svg { display: block; }
 .card-rates { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin-top: 10px; text-align: center; }
 .card-rates .k { display: block; margin-bottom: 4px; font-size: 11px; color: var(--ink-3); }
 .card-rates .heat { display: block; min-width: 0; padding: 6px 0 5px; }
-.card-pin { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.card-pin { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); row-gap: 10px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--rule); }
+.card-pin .heat { font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
 
 /* ---- phone: an app layout of its own, not the table squeezed down ---- */
 @media (max-width: 760px) {
   body { padding-bottom: calc(60px + env(safe-area-inset-bottom)); -webkit-tap-highlight-color: transparent; }
 
   /* app bar: name and league, or a back button on a player's page */
-  .top { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 0 4px 0 14px; }
-  .top-start { gap: 10px; min-width: 0; }
-  .top-end { gap: 0; }
-  .status { margin-right: 4px; }
+  .top { height: auto; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand end" "lg lg"; gap: 0 8px; padding: 4px 4px 0 14px; }
+  .top-start { display: contents; }
+  .brand, .appback { grid-area: brand; justify-self: start; }
+  .top-end { grid-area: end; gap: 0; min-width: 0; }
+  .status { margin-right: 4px; overflow: hidden; text-overflow: ellipsis; }
+  .leagues { grid-area: lg; gap: 4px; margin: 0 -4px 0 -14px; padding: 2px 14px 8px; overflow-x: auto; scrollbar-width: none; }
+  .leagues::-webkit-scrollbar { display: none; }
+  .leagues a { flex: none; padding: 7px 12px; font-size: 14px; }
   .status .wide { display: none; }
   .iconbtn { width: 40px; height: 40px; }
   body[data-view="player"] .brand, body[data-view="player"] .leagues { display: none; }
@@ -384,14 +390,20 @@ svg { display: block; }
   .filters { display: block; margin-bottom: 4px; }
   .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 0 12px; }
   .tabs button { height: 36px; padding: 0 13px; border-radius: 18px; font-size: 14px; }   /* thumb-sized on a phone */
-  .controlsrow { display: flex; align-items: center; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 10px 14px 2px; }
-  .controlsrow::-webkit-scrollbar { display: none; }
-  .controlsrow > * { flex: none; }
-  .seg button { height: 34px; padding: 0 14px; }
-  .controlsrow .ghost { height: 38px; border-radius: 19px; }
+  .controlsrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px 2px; }
+  .controlsrow > * { flex: none; order: 3; max-width: 100%; }
+  #side { order: 1; }
+  #evonly { order: 2; }
+  #target { overflow-x: auto; scrollbar-width: none; }
+  .seg button { height: 32px; padding: 0 14px; }
+  .controlsrow .ghost { height: 36px; border-radius: 18px; }
   #watchonly { display: none; }                      /* the Watchlist tab does this */
-  .sortwrap { display: flex; align-items: center; gap: 2px; height: 38px; padding: 0 2px 0 12px; border: 1px solid var(--rule); border-radius: 19px; color: var(--ink-3); font-size: 13px; }
-  .sortwrap select { height: 36px; padding: 0 4px; border: 0; background: none; color: var(--ink); font-size: 16px; font-weight: 600; }
+  .setopts { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 12px 10px; border-bottom: 1px solid var(--rule); margin-bottom: 6px; }
+  .setopts .ghost { height: 36px; border-radius: 18px; }
+  .setbadge { display: inline; padding: 1px 7px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--ink); font-size: 11px; }
+  .setbadge:empty { display: none; }
+  .sortwrap { display: flex; align-items: center; gap: 2px; height: 36px; padding: 0 2px 0 12px; border: 1px solid var(--rule); border-radius: 18px; color: var(--ink-3); font-size: 13px; }
+  .sortwrap select { height: 34px; padding: 0 4px; border: 0; background: none; color: var(--ink); font-size: 16px; font-weight: 600; }
   .count { display: block; margin: 10px 14px 0; }
   .notice { margin: 0 14px 10px; }
   .empty { margin: 8px 12px 0; }
@@ -697,6 +709,9 @@ const state = {
 };
 // A row's hit rates: regular season, or with playoff games counted where that changes them.
 const sample = row => (state.playoffs && row.po) || row;
+// a stat the board only compares prices on (1st TD): no game logs, so no chart or hit rates
+const PRICE_ONLY = new Set(D.priceOnly || []);
+const noChart = row => `<span class="meta">${PRICE_ONLY.has(row.stat) ? "Price comparison only" : `No ${esc(D.name)} games yet`}</span>`;
 const watchKey = row => (row.id ?? row.name) + "|" + row.stat;
 const gameTime = row => {
   const start = new Date(row.start);
@@ -713,11 +728,12 @@ const ALL_TARGETS = [["ud", "Underdog", "UD", D.udIcon], ...D.books.filter(b => 
 let TARGETS = ALL_TARGETS.filter(([key]) => !hiddenBooks.has(key));
 if (!TARGETS.some(([key]) => key === state.target)) state.target = "ud";
 const targetName = () => TARGETS.find(([key]) => key === state.target)[1];
-// The chosen site's decimal price for this side at the row's line, or null.
+// The chosen site's decimal price for this side, {price, line}, or null: at the row's line if it
+// has one, else its nearest (EV is then measured against Fair at that line).
 const targetPrice = (row, side, quotes) => {
-  if (state.target === "ud") return (row.ud && row[side]?.odds) || null;
+  if (state.target === "ud") return row.ud && row[side]?.odds ? { price: row[side].odds, line: row.line } : null;
   const q = quotes[D.books.findIndex(b => b.key === state.target)];
-  return q && q.line === row.line ? q.price : null;
+  return q ? { price: q.price, line: q.line } : null;
 };
 // The over's chance with the vig removed, by the power method: the k with a^k + b^k = 1 for the
 // implied chances a and b, then a^k. It takes more of the margin off the longer side, where books
@@ -756,7 +772,8 @@ const CONFIDENT_TEXT = (sets => sets.slice(0, -1).join(", ") + ", or " + sets[se
 // fair include a set in D.fair.confident (an exchange, or all of Pinnacle, DraftKings and FanDuel);
 // otherwise there is no fair or EV at all, only the books' prices (parts still says who had both sides).
 // offer: the chosen site's price (Underdog's payout or Mise-o-jeu's odds); ev: that price against
-// fair. A site to bet on never counts toward fair.
+// fair. A site offering only another line (Mise-o-jeu's 12.5 on an 11.5 row) has its EV measured
+// against Fair worked out at its line instead (evLine, evFair). A site to bet on never counts toward fair.
 // Every [line, over, under] a book has for a row: the row's own price, then its two-way prices at
 // other lines (the fourth item).
 const linesOf = entry => entry ? [entry.slice(0, 3), ...(entry[3] || [])] : [];
@@ -819,11 +836,47 @@ function statSlope(stat, line) {
   const unitSlope = statSlopes.get(stat);
   return unitSlope == null ? null : unitSlope / Math.sqrt(Math.max(line, 0.5));
 }
-function estimateAt(key, entry, row) {
+// A count's chance of the over at a line, from its mean and size (a negative binomial, whose
+// variance is mean + mean^2 / size; "poisson" for none): P(X > line), and at a whole line the
+// chance given no push, as a two-way price there is read.
+function distOver(line, mean, size) {
+  const k = Math.floor(line), poisson = size === "poisson";
+  let p = poisson ? Math.exp(-mean) : Math.pow(size / (size + mean), size), cdf = p;
+  const q = poisson ? 0 : mean / (size + mean);
+  for (let x = 1; x <= k; x++) { p *= poisson ? mean / x : (x - 1 + size) / x * q; cdf += p; }
+  return line === k ? (1 - cdf) / Math.max(1 - p, 1e-12) : 1 - cdf;
+}
+// The mean that gives the over `chance` at `line`, by bisection (the over rises with the mean).
+const meanMemo = new Map();
+function distMean(line, chance, size) {
+  const memo = `${line}|${chance}|${size}`;
+  if (meanMemo.has(memo)) return meanMemo.get(memo);
+  let lo = 1e-4, hi = Math.max(4 * line + 20, 10);
+  for (let i = 0; i < 60; i++) { const mid = Math.sqrt(lo * hi); if (distOver(line, mid, size) < chance) lo = mid; else hi = mid; }
+  meanMemo.set(memo, Math.sqrt(lo * hi));
+  return meanMemo.get(memo);
+}
+// a devigged over at `from` read at `to` through the stat's count distribution
+const distMove = (from, chance, to, size) => distOver(to, distMean(from, Math.min(Math.max(chance, 1e-3), 1 - 1e-3), size), size);
+const distName = size => size === "poisson" ? "Poisson" : `negative binomial (size ${size})`;
+function estimateAt(key, entry, row, alt = false) {
   const line = row.line;
   const pts = fairLines(entry);
   if (!pts.length) return null;
   const unit = Math.max(1, Math.abs(line) / 10);
+  const size = alt ? D.fair.dist?.[row.stat] : null;
+  if (size != null) {   // at a site's other line, a count: each nearby line's chance read there through the fitted distribution
+    const lo = pts.filter(p => p[0] < line).pop(), hi = pts.find(p => p[0] > line);
+    if (lo && hi) {
+      const t = (line - lo[0]) / (hi[0] - lo[0]);
+      return { over: unlogit((1 - t) * logit(distMove(lo[0], lo[1], line, size)) + t * logit(distMove(hi[0], hi[1], line, size))),
+               factor: Math.pow(0.5, Math.min(line - lo[0], hi[0] - line) / unit), how: `between ${lo[0]} and ${hi[0]} by ${distName(size)}` };
+    }
+    const near = lo || hi, reach = Math.abs(line - near[0]);
+    if (reach > 2 * unit) return null;
+    return { over: distMove(near[0], near[1], line, size), factor: 0.75 * Math.pow(0.5, reach / unit),
+             how: `moved from ${near[0]} by ${distName(size)}` };
+  }
   const lo = pts.filter(p => p[0] < line).pop(), hi = pts.find(p => p[0] > line);
   if (lo && hi) {
     const t = (line - lo[0]) / (hi[0] - lo[0]);
@@ -850,12 +903,30 @@ function market(row, side) {
                              ou: overUnders(b.prices[key]) } : null;
   });
   if (!quotes.some(Boolean)) return null;
+  const m = { quotes, ...fairAt(row, side, at) };
+  const offer = targetPrice(row, side, quotes);
+  m.offer = offer?.price ?? null;
+  if (offer && offer.line !== row.line) {   // the site offers another line: EV against Fair there
+    const there = fairAt({ ...row, line: offer.line }, side, null, true);
+    m.evLine = offer.line;
+    m.evFair = there;
+    m.ev = there.fair != null ? there.fair * offer.price - 1 : null;
+  } else m.ev = m.fair != null && offer ? m.fair * offer.price - 1 : null;
+  return m;
+}
+// The fair chance of `side` at the row's line from the sharp books (null short of a confident set):
+// their two-way prices there, and the exchanges' other lines (estimateAt). at: each book's quote at
+// the line, when the caller has them. alt: the line is a site's other one, for its EV; only there
+// are the exchanges' other lines read through a count distribution (D.fair.dist).
+function fairAt(row, side, at = null, alt = false) {
+  const key = watchKey(row);
+  at ??= Object.fromEntries(D.books.map(b => [b.key, quoteAt(b.prices[key], row.line, side)]));
   // the sharp books' two-way prices at the row's line, read from the raw [line, over, under]
   const same = D.books.map(b => [b, at[b.key]]).filter(([b, q]) => counts(b) && q && q[2] != null && q[0] === row.line
     && 1 / q[1] + 1 / q[2] <= 1 + D.fair.maxOverround + 1e-9);
   const atLine = new Set(same.map(([b]) => b.key));
   const est = D.books.filter(b => counts(b) && !atLine.has(b.key) && (D.fair.estimate || []).includes(b.key))
-    .map(b => [b, estimateAt(key, b.prices[key], row)]).filter(([, e]) => e);
+    .map(b => [b, estimateAt(key, b.prices[key], row, alt)]).filter(([, e]) => e);
   let fair = null, best = null, cap = null, sure = false, parts = [];
   if (same.length || est.length) {
     parts = [...same.map(([b, q]) => ({ book: b.name, weight: b.weight, over: devigOver(q[1], q[2]) })),
@@ -871,9 +942,7 @@ function market(row, side) {
     sure = D.fair.confident.some(keys => keys.every(k => posted.has(k)));
     if (sure) fair = side === "under" ? 1 - fairOver : fairOver;
   }
-  const offer = targetPrice(row, side, quotes);
-  return { quotes, best, fair, cap, sure, parts, offer, same: same.length, est: est.length > 0,
-           ev: fair != null && offer ? fair * offer - 1 : null };
+  return { best, fair, cap, sure, parts, same: same.length, est: est.length > 0 };
 }
 // why a row priced by sharp books short of CONFIDENT_TEXT has no fair chance
 const shortNote = m => (m.parts.length ? `only ${m.parts.map(part => part.book).join(" and ")} ${m.parts.length > 1 ? "have" : "has"} both sides here`
@@ -937,7 +1006,7 @@ function visibleRows() {
       && (state.stat === "all" || r.stat === state.stat)
       && (!state.game || r.game === state.game)
       && (!state.day || r.game.startsWith(state.day + "|"))
-      && (!state.standardOnly || (r.ud && r[state.side].mult === 1))
+      && (!state.standardOnly || (r.ud && isStandardPick(r[state.side])))
       && (!state.evOnly || market(r, state.side)?.ev > 0)
       && (!state.watchOnly || state.watch.has(watchKey(r)))
       && (!state.query || fold(r.name).includes(state.query)))
@@ -976,7 +1045,7 @@ const whereHtml = row => row.team
   : `${esc(row.matchup || "")}, ${esc(gameTime(row))}`;
 function rowHtml(row, i) {
   const s = STATS.get(row.stat), offer = row.ud ? row[state.side] : null, letter = state.side === "over" ? "O" : "U";
-  const est = row.ud ? "" : D.oddsOnly ? ` data-v="Market line" data-l="the line most books price; Underdog has none"`
+  const est = row.ud ? "" : D.oddsOnly || PRICE_ONLY.has(row.stat) ? ` data-v="Market line" data-l="the line most books price; Underdog has none"`
     : ` data-v="Typical line" data-l="from the last 20 games, not posted by Underdog"`;
   const watched = state.watch.has(watchKey(row));
   const b2b = row.rest === 0 ? `<span class="tag" data-v="Back-to-back" data-l="played last night">B2B</span>` : "";
@@ -986,8 +1055,8 @@ function rowHtml(row, i) {
 <span class="inline-line">${letter} ${row.line} ${esc(s.short)}<em>${offer ? fmtOdds(offer) : ""}</em></span>
 <span class="meta">${whereHtml(row)}${b2b}</span></span></div></td>
 <td class="c-line"><span class="lineval${row.ud ? "" : " est"}"${est}>${letter} ${row.line}<small>${esc(s.short)}</small></span></td>
-${D.oddsOnly ? "" : `<td class="c-chart">${row.last ? spark(row, state.side) : `<span class="meta">No ${esc(D.name)} games yet</span>`}</td>`}
-<td class="c-price num${state.target === "ud" ? " is-target" : ""}">${offer ? `<span class="price">${fmtOdds(offer)}</span>` : `<span class="price none">&ndash;</span>`}</td>
+${D.oddsOnly ? "" : `<td class="c-chart">${row.last ? spark(row, state.side) : noChart(row)}</td>`}
+<td class="c-price num${state.target === "ud" ? " is-target" : ""}">${offer ? `<span class="price"${udTip(row)}>${fmtOdds(offer)}</span>` : `<span class="price none">&ndash;</span>`}</td>
 ${pinCells(row)}
 ${D.oddsOnly ? "" : `${rateCell(row, "l5", "c-l5")}${rateCell(row, "l10", "c-l10")}${rateCell(row, "l20", "c-l20")}${rateCell(row, "season", "c-season", true)}${rateCell(row, "h2h", "c-h2h", true)}
 ${dvpCell(row)}
@@ -1001,30 +1070,40 @@ ${dvpCell(row)}
 const isBest = (q, m) => m.same > 1 && q.sharp && !q.oneWay && fmtDec(q.price) === fmtDec(m.best);
 // every over/under the book posts for the row, for a hover: "33.5 1.88/1.86 · 38.5 2.30/1.60"
 const ouText = q => q.ou.map(o => `${o[0]} ${fmtDec(o[1])}/${fmtDec(o[2])}`).join(" \u00b7 ");
-function quoteHtml(q, m, row) {
+// every book's price has a hover with its over/unders, even when it posts only the row's line
+const bookTip = (b, q) => q.oneWay
+  ? ` data-v="${esc(b.short)} one-way" data-l="only the over at ${q.line}: no fair price${q.ou.length ? `. O/U ${esc(ouText(q))}` : ""}"`
+  : ` data-v="${esc(b.short)} O/U" data-l="${esc(ouText(q))}"`;
+// Underdog's own over/under at the row's line, for its price's hover
+const udTip = row => !row.ud ? ""
+  : ` data-v="UD O/U" data-l="${row.line} ${row.over?.odds != null ? fmtDec(row.over.odds) : "\u2013"}/${row.under?.odds != null ? fmtDec(row.under.odds) : "\u2013"}"`;
+function quoteHtml(q, m, row, b) {
   if (!q) return `<span class="price none">&ndash;</span>`;
   const others = q.ou.filter(o => o[0] !== q.line || q.oneWay);
-  const list = others.length ? ` data-v="Over/unders" data-l="${esc(ouText(q))}"` : "";
+  const list = bookTip(b, q);
   if (q.oneWay) {
     // its nearest over/under goes under the one-way price, so the book's real line shows
     const near = others.reduce((a, o) => !a || Math.abs(o[0] - row.line) < Math.abs(a[0] - row.line) ? o : a, null);
-    return `<span class="price${q.line === row.line ? "" : " off"}" data-v="One-way${near ? "; over/unders" : ""}"`
-      + ` data-l="the book posts only the over at ${q.line}: no fair price${near ? `. ${esc(ouText(q))}` : ""}">${fmtDec(q.price)}</span>`
+    return `<span class="price${q.line === row.line ? "" : " off"}"${list}>${fmtDec(q.price)}</span>`
       + (q.line === row.line ? "" : `<small class="pinnote">at ${q.line}</small>`)
       + (near ? `<small class="pinnote">O/U ${near[0]} ${fmtDec(state.side === "under" ? near[2] : near[1])}</small>` : "");
   }
   if (q.line !== row.line) return `<span class="price off"${list}>${fmtDec(q.price)}</span><small class="pinnote">at ${q.line}</small>`;
   return `<span class="price${isBest(q, m) ? " best" : ""}"${list}>${fmtDec(q.price)}</span>`;
 }
+// the hover on an EV measured at the site's own line: Fair there, and from whom
+const evLineTip = m => ` data-v="Fair at ${m.evLine}: ${fmtPct(m.evFair.fair)}" data-l="${esc((m.evFair.cap ? capNote(m.evFair) : partsNote(m.evFair, state.side))
+  + `; ${targetName()} ${fmtDec(m.offer)}`)}"`;
 function pinCells(row) {
   const m = market(row, state.side), none = `<span class="price none">&ndash;</span>`;
-  const books = D.books.map((b, i) => `<td class="num c-book bk-${b.key}${b.key === state.target ? " is-target" : ""}">${m ? quoteHtml(m.quotes[i], m, row) : none}</td>`).join("");
+  const books = D.books.map((b, i) => `<td class="num c-book bk-${b.key}${b.key === state.target ? " is-target" : ""}">${m ? quoteHtml(m.quotes[i], m, row, b) : none}</td>`).join("");
   const tip = !m || m.fair == null ? ""
     : m.cap ? ` data-v="Capped" data-l="${esc(capNote(m))}"`
     : ` data-v="Fair" data-l="${esc(partsNote(m, state.side))}"`;
   return `${books}<td class="num c-fair">${m?.fair != null ? `<span class="price"${tip}>${fmtPct(m.fair)}</span>`
     + (m.est ? `<small class="pinnote">est</small>` : "") : none}</td>`
-    + `<td class="num c-ev">${m?.ev != null ? `<span class="heat ${evHeat(m.ev)}"${tip}>${fmtEv(m.ev)}</span>` : `<span class="heat none">&ndash;</span>`}</td>`;
+    + `<td class="num c-ev">${m?.ev != null ? `<span class="heat ${evHeat(m.ev)}"${m.evLine != null ? evLineTip(m) : tip}>${fmtEv(m.ev)}</span>`
+      + (m.evLine != null ? `<small class="pinnote">at ${m.evLine}</small>` : "") : `<span class="heat none">&ndash;</span>`}</td>`;
 }
 
 // The phone's version of a row: a card with everything on it, so nothing hides behind a hover.
@@ -1041,8 +1120,8 @@ function cardHtml(row, i) {
 <div class="card-head">${mugHtml(row.id, row.name)}<span class="who"><b>${esc(row.name)}</b>
 <span class="meta">${whereHtml(row)}${row.rest === 0 ? `<span class="tag">B2B</span>` : ""}</span></span>
 <button class="star" type="button" aria-pressed="${watched}" aria-label="Watch ${esc(row.name)} ${esc(s.label)}">${watched ? "★" : "☆"}</button></div>
-<div class="card-line"><span class="lineval${row.ud ? "" : " est"}">${state.side === "over" ? "Over" : "Under"} ${row.line}<small>${esc(s.label)}</small></span>${offer ? `<span class="price">${fmtOdds(offer)}</span>` : `<span class="price none">${D.oddsOnly ? "market line" : "typical line"}</span>`}</div>
-${D.oddsOnly ? "" : `${row.last ? spark(row, state.side, true) : `<span class="meta">No ${esc(D.name)} games yet</span>`}
+<div class="card-line"><span class="lineval${row.ud ? "" : " est"}">${state.side === "over" ? "Over" : "Under"} ${row.line}<small>${esc(s.label)}</small></span>${offer ? `<span class="price">${fmtOdds(offer)}</span>` : `<span class="price none">${D.oddsOnly || PRICE_ONLY.has(row.stat) ? "market line" : "typical line"}</span>`}</div>
+${D.oddsOnly ? "" : `${row.last ? spark(row, state.side, true) : noChart(row)}
 <div class="card-rates">${rateChip(row, "l5", "L5")}${rateChip(row, "l10", "L10")}${rateChip(row, "l20", "L20")}${rateChip(row, "season", esc(D.seasonLabel), true)}${rateChip(row, "h2h", "H2H", true)}<div><span class="k">DvP</span><span class="heat ${row.dvp == null ? "none" : dvpHeat(row)}">${row.dvp == null ? "&ndash;" : ordinal(row.dvp)}</span></div></div>`}
 ${pinChips(row)}
 </li>`;
@@ -1057,13 +1136,13 @@ const nearOu = (q, row) => {
 function pinChips(row) {
   const m = market(row, state.side);
   if (!m) return "";
-  const chip = (label, value, cls) => `<div><span class="k">${label}</span><span class="heat ${cls}">${value}</span></div>`;
+  const chip = (label, value, cls, tipAttr = "") => `<div><span class="k">${label}</span><span class="heat ${cls}"${tipAttr}>${value}</span></div>`;
   const books = D.books.map((b, i) => [b, m.quotes[i]]).filter(([b, q]) => q && !hiddenBooks.has(b.key))
     .map(([b, q]) => chip(b.icon ? `<img class="bookicon" src="${b.icon}" alt="${esc(b.name)}" title="${esc(b.name)}">` : esc(b.short), (q.line === row.line ? fmtDec(q.price) : `${fmtDec(q.price)} at ${q.line}`) + nearOu(q, row),
-      q.line !== row.line ? "none" : isBest(q, m) ? "best" : "")).join("");
+      q.line !== row.line ? "none" : isBest(q, m) ? "best" : "", bookTip(b, q))).join("");
   return `<div class="card-rates card-pin">${books}`
     + `${chip("Fair", m.fair != null ? fmtPct(m.fair) : "&ndash;", m.fair == null ? "none" : "")}`
-    + `${chip(`EV ${esc(TARGETS.find(([key]) => key === state.target)[2])}`, m.ev != null ? fmtEv(m.ev) : "&ndash;", m.ev == null ? "none" : evHeat(m.ev))}</div>`;
+    + `${chip(`EV ${esc(TARGETS.find(([key]) => key === state.target)[2])}`, m.ev != null ? fmtEv(m.ev) + (m.evLine != null ? ` at ${m.evLine}` : "") : "&ndash;", m.ev == null ? "none" : evHeat(m.ev), m.ev != null && m.evLine != null ? evLineTip(m) : "")}</div>`;
 }
 
 // A full slate is thousands of rows, so the board is drawn a page at a time as you scroll.
@@ -1120,21 +1199,36 @@ function fit() {
 let fitting = 0;
 addEventListener("resize", () => { cancelAnimationFrame(fitting); fitting = requestAnimationFrame(fit); });
 
+// a standard pick: Underdog's standard payout (1.87x), whether or not the line offers the other side
+const isStandardPick = o => !!o && (o.odds && D.standardOdds ? Math.abs(o.odds - D.standardOdds) < 1e-9 : o.mult === 1);
+
 // ---- settings: the books shown ----
 function applyHidden() {
   let style = $("#hidebooks");
   if (!style) { style = document.createElement("style"); style.id = "hidebooks"; document.head.append(style); }
   style.textContent = [...hiddenBooks].map(key => `.bk-${CSS.escape(key)}`).join(", ") + (hiddenBooks.size ? " { display: none; }" : "");
 }
+// On a phone the less-used toggles live in Settings, not the filter row: the same buttons, moved
+const phone = matchMedia("(max-width: 760px)"), OPTS = ["udonly", "standard", "playoffs"].map(id => $("#" + id));
+function restoreOpts() { $("#evonly").before(OPTS[0], OPTS[1]); $("#evonly").after(OPTS[2]); }
+function placeOpts() { const box = $("#setopts"); phone.matches && box ? box.append(...OPTS) : restoreOpts(); }
+phone.addEventListener("change", placeOpts);
+function optsBadge() {
+  const on = [state.udOnly, state.standardOnly, state.playoffs].filter(Boolean).length, el = $("#setbadge");
+  if (el) el.textContent = on ? `${on} on` : "";
+}
 function renderSettings() {
   const el = $("#settings"), open = el.open;
+  restoreOpts();   // out of the panel before it's redrawn
   const shownCount = D.books.filter(b => !hiddenBooks.has(b.key)).length;
-  el.innerHTML = `<summary><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>Settings</summary>`
+  el.innerHTML = `<summary><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>Settings<span class="setbadge" id="setbadge"></span></summary>`
+    + `<div class="setopts" id="setopts"></div>`
     + `<div class="sethead"><span>Books (${shownCount}/${D.books.length})</span><button type="button" data-all="${hiddenBooks.size ? "show" : "hide"}">${hiddenBooks.size ? "Show all" : "Hide all"}</button></div>`
     + D.books.map(b => `<label title="${esc(b.name)}${b.sharp ? ", counts toward Fair" : b.target ? ", a site to bet on" : ""}"><input type="checkbox" data-book="${esc(b.key)}"${hiddenBooks.has(b.key) ? "" : " checked"}>`
       + `${b.icon ? `<img class="bookicon" src="${b.icon}" alt="">` : ""}<span class="bookname">${esc(b.name)}</span>${b.sharp ? `<span class="sharpdot" title="counts toward Fair">sharp</span>` : ""}</label>`).join("")
     + `<p class="setnote">A hidden book still counts toward Fair. Saved in this browser, for every league.</p>`;
   el.open = open;
+  placeOpts(); optsBadge();
 }
 function setHidden(keys) {
   hiddenBooks.clear(); for (const k of keys) hiddenBooks.add(k);
@@ -1197,6 +1291,7 @@ function renderTabs() {
   $("#udonly").setAttribute("aria-pressed", state.udOnly);
   $("#evonly").setAttribute("aria-pressed", state.evOnly);
   $("#playoffs").setAttribute("aria-pressed", state.playoffs);
+  optsBadge();
   $("#sortsel").innerHTML = COLUMNS.filter(c => c.key).map(c => `<option value="${c.key}">${esc(c.label)}</option>`).join("");
   $("#sortsel").value = state.sort.key;
   renderTabbar();
@@ -1544,7 +1639,8 @@ function renderPlayer() {
       + (more.length ? `; over/under${more.length > 1 ? "s" : ""} ${esc(more.map(o => `${o[0]} ${fmtDec(o[1])}/${fmtDec(o[2])}`).join(", "))}` : "") + `.${use}${moves}`;
   }).join("") + (mk.fair == null ? ` No fair chance: ${esc(shortNote(mk))}.`
     : ` With the vig removed, ${mk.parts.length > 1 || mk.est ? `${esc(partsNote(mk, view.side))}, weighted, make it` : "that is"} ${fmtPct(mk.fair)} ${view.side}${mk.cap ? ` (${esc(capNote(mk))})` : ""}`
-      + `${mk.ev != null ? `, ${fmtEv(mk.ev)} EV at ${targetName()}'s ${fmtDec(mk.offer)}` : ""}.`);
+      + `${mk.ev != null && mk.evLine == null ? `, ${fmtEv(mk.ev)} EV at ${targetName()}'s ${fmtDec(mk.offer)}` : ""}.`)
+    + (mk?.ev != null && mk.evLine != null ? ` At ${targetName()}'s line, ${mk.evLine}, ${esc(partsNote(mk.evFair, view.side))}${mk.evFair.parts.length > 1 ? ", weighted," : ""} make it ${fmtPct(mk.evFair.fair)} ${view.side}: ${fmtEv(mk.ev)} EV at ${fmtDec(mk.offer)}.` : "");
 
   const cell = (k, i) => (G[k][i] == null ? "&ndash;" : CLOCK.has(k) ? fmtClock(G[k][i]) : esc(G[k][i]));
   const logRows = idx.slice(0, 100).map(i => {

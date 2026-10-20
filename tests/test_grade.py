@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from props import books, grade, snapshots, store
+from props import books, grade, history, snapshots, store
 from props.leagues import nhl
 
 from .helpers import game_logs
@@ -18,7 +18,8 @@ class GradeTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         for patch in (mock.patch.object(store, "DATA", Path(self.tmp.name)),
-                      mock.patch.object(grade, "OUT", Path(self.tmp.name) / "grades.json")):
+                      mock.patch.object(grade, "OUT", Path(self.tmp.name) / "grades.json"),
+                      mock.patch.object(history, "OUT", Path(self.tmp.name) / "history.html")):
             patch.start()
             self.addCleanup(patch.stop)
         rows = [row(1, "goals", 0.5, ud=(1.87, 1.87))]
@@ -40,6 +41,12 @@ class GradeTest(unittest.TestCase):
         self.assertAlmostEqual(ud["clv"], (1 - close_over) * 1.87 - 1, places=3)   # the line moved against it
         self.assertEqual((ud["won"], ud["roi"]), (0.0, -1.0))                # he scored
         self.assertEqual(json.loads(grade.OUT.read_text())["leagues"]["nhl"]["targets"]["underdog"]["picks"], 1)
+        page = history.OUT.read_text()
+        picks = json.loads(page.split('<script id="data" type="application/json">')[1].split("</script>")[0])["picks"]
+        under = next(p for p in picks if p["site"] == "underdog" and p["side"] == "under")
+        self.assertGreater(under["ev"], 0)                      # graded at the publish that flagged it
+        self.assertEqual((under["player"], under["stat"], under["won"]), ("P1", "Goals", 0))
+        self.assertTrue(any(p["ev"] <= 0 for p in picks))      # the over, never +EV, is kept for the curve
 
     def test_a_player_who_did_not_play_is_void(self):
         for path in (store.DATA / "nhl" / "boxscores").rglob("*.parquet"):

@@ -136,7 +136,7 @@ class SshTest(unittest.TestCase):
         script = upload.swap_script(self.CONF)
         self.assertIn("dir=dev.example.ca/scboard;", script)
         self.assertIn("for keep in .ftpquota .well-known blog cgi-bin; do", script)
-        self.assertLess(script.index('tar xzf - -C ".$name.new"'), script.index('mv "$name" ".$name.old"'))
+        self.assertLess(script.index('tar xzUf - -C ".$name.new"'), script.index('mv "$name" ".$name.old"'))
         self.assertEqual(upload.ssh_command(self.CONF)[-1], "me@142.0.0.1")
         self.assertIn("/keys/k", upload.ssh_command(self.CONF))
 
@@ -157,3 +157,29 @@ class SshTest(unittest.TestCase):
             self.assertEqual(sorted(str(p.relative_to(live)) for p in live.rglob("*") if p.is_file()),
                              [".ftpquota", "index.html", "p/1.js"])
             self.assertEqual(sorted(p.name for p in live.parent.iterdir()), ["scboard"])   # nothing left beside it
+
+    def test_only_the_changed_files_are_sent_and_the_live_copy_is_untouched_until_the_swap(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as home:
+            live = Path(home) / "dev.example.ca" / "scboard"
+            (live / "p").mkdir(parents=True)
+            for name, text in [("index.html", "old"), ("p/1.js", "same"), ("p/2.js", "gone"), (".ftpquota", "host's")]:
+                (live / name).write_text(text)
+            kept = live / "p" / "1.js"
+            changed = Path(home) / "changed"
+            changed.mkdir()
+            (changed / "index.html").write_text("new")
+            pack = subprocess.run(["tar", "czf", "-", "-C", str(changed), "index.html"], capture_output=True, check=True).stdout
+            done = subprocess.run(["bash", "-c", upload.swap_script(self.CONF, gone=["p/2.js"], changed=True)], input=pack,
+                                  check=True, capture_output=True, env={"HOME": home, "PATH": "/usr/bin:/bin"})
+            files = {str(p.relative_to(live)): p.read_text() for p in live.rglob("*") if p.is_file()}
+            self.assertEqual(files, {".ftpquota": "host's", "index.html": "new", "p/1.js": "same"})
+            self.assertTrue(done.stdout.startswith(b"2 files"))   # the host's own not counted
+            self.assertEqual(sorted(p.name for p in live.parent.iterdir()), ["scboard"])
+
+    def test_a_changed_only_upload_with_no_live_site_asks_for_the_whole_site(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as home:
+            done = subprocess.run(["bash", "-c", upload.swap_script(self.CONF, changed=True)], input=b"",
+                                  capture_output=True, env={"HOME": home, "PATH": "/usr/bin:/bin"})
+            self.assertEqual(done.returncode, 3)
